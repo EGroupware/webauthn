@@ -4,8 +4,11 @@
  *
  * @link https://www.egroupware.org
  * @author Ralf Becker <rb-At-egroupware.org>
- * @package openid
- * @license http://opensource.org/licenses/gpl-license.php GPL - GNU General Public License
+ * @package webauthn
+ * @license https://www.egroupware.org/EPL EPL - EGroupware EPL License
+ *
+ * Based on the following MIT Licensed packages:
+ * @link https://github.com/web-auth/webauthn-framework
  */
 
 namespace EGroupware\WebAuthn;
@@ -17,7 +20,15 @@ use Webauthn\PublicKeyCredentialUserEntity;
 
 class PublicKeyCredentialSourceRepository implements PublicKeyCredentialSourceRepositoryInterface
 {
-	private $path = '/tmp/pubkey-repo.json';
+	private $path;
+
+	/**
+	 * Constructor
+	 */
+	public function __construct()
+	{
+		$this->path = $GLOBALS['egw_info']['server']['files_dir'].'/webauthn/pubkey-repo.json';
+	}
 
     public function findOneByCredentialId(string $publicKeyCredentialId): ?PublicKeyCredentialSource
 	{
@@ -69,8 +80,9 @@ class PublicKeyCredentialSourceRepository implements PublicKeyCredentialSourceRe
 	{
 		if (!file_exists($this->path))
 		{
-            if (!mkdir($concurrentDirectory = dirname($this->path), 0700, true) && !is_dir($concurrentDirectory)) {
-                throw new \RuntimeException(sprintf('Directory "%s" was not created', $concurrentDirectory));
+            if (!mkdir($concurrentDirectory = dirname($this->path), 0700, true) && !is_dir($concurrentDirectory))
+			{
+                throw new \RuntimeException(lang('Directory "%1" could not be created!', $concurrentDirectory));
             }
 		}
 		file_put_contents($this->path, json_encode($data), LOCK_EX);
