@@ -37,6 +37,8 @@ $setup_info['webauthn']['description'] = 'WebAuthn (Fido2) as 2. Factor for EGro
 //$setup_info['webauthn']['hooks']['admin']   = OpenID\Ui::class.'::menu';
 //$setup_info['webauthn']['hooks']['sidebox']   = OpenID\Ui::class.'::menu';
 $setup_info['webauthn']['hooks']['preferences_security'] = WebAuthn\Register::class.'::security';
+$setup_info['webauthn']['hooks']['login_page'] = WebAuthn\Login::class.'::page';
+$setup_info['webauthn']['hooks']['multifactor_policy'] = WebAuthn\Login::class.'::multifactor';
 
 $setup_info['webauthn']['depends'][] = [
 	'appname' => 'api',

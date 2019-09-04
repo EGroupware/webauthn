@@ -116,11 +116,11 @@ class Register
 	protected static function registration($response, $options)
 	{
 		$publicKeyCredentialCreationOptions = PublicKeyCredentialCreationOptions::createFromString($options);
-		error_log("publicKeyCredentialCreationOptions from session=".json_encode($publicKeyCredentialCreationOptions));
+		//error_log("publicKeyCredentialCreationOptions from session=".json_encode($publicKeyCredentialCreationOptions));
 
 		// Retrieve de data sent by the device
 		$data = base64_decode($response);
-		error_log("data from request=$data");
+		//error_log("data from request=$data");
 
 		// Credential Repository
 		$publicKeyCredentialSourceRepository = new PublicKeyCredentialSourceRepository();
@@ -150,7 +150,7 @@ class Register
 
 			//You can also get the PublicKeyCredentialDescriptor.
 			$publicKeyCredentialDescriptor = $publicKeyCredentialSource->getPublicKeyCredentialDescriptor();
-			error_log('$publicKeyCredential->getPublicKeyCredentialDescriptor()='.json_encode($publicKeyCredentialDescriptor));
+			//error_log('$publicKeyCredential->getPublicKeyCredentialDescriptor()='.json_encode($publicKeyCredentialDescriptor));
 		}
 		catch (\Throwable $e) {
 			_egw_log_exception($e);
