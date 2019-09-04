@@ -13,78 +13,116 @@
 
 namespace EGroupware\WebAuthn;
 
-//use EGroupware\Api;
+use EGroupware\Api;
 use Webauthn\PublicKeyCredentialSourceRepository as PublicKeyCredentialSourceRepositoryInterface;
 use Webauthn\PublicKeyCredentialSource;
 use Webauthn\PublicKeyCredentialUserEntity;
 
-class PublicKeyCredentialSourceRepository implements PublicKeyCredentialSourceRepositoryInterface
+class PublicKeyCredentialSourceRepository  extends Api\Storage\Base implements PublicKeyCredentialSourceRepositoryInterface
 {
-	private $path;
+	const APP = 'webauthn';
+
+	/**
+	 * Table name
+	 */
+	const TABLE = 'egw_webauthn_pubkeys';
 
 	/**
 	 * Constructor
 	 */
 	public function __construct()
 	{
-		$this->path = $GLOBALS['egw_info']['server']['files_dir'].'/webauthn/pubkey-repo.json';
+		parent::__construct(self::APP, self::TABLE, null, '', true);
 	}
 
+	/**
+	 * Find public key credentials by their ID
+	 *
+	 * @param string $publicKeyCredentialId
+	 * @return PublicKeyCredentialSource|null
+	 */
     public function findOneByCredentialId(string $publicKeyCredentialId): ?PublicKeyCredentialSource
 	{
-		$data = $this->read();
-        if (isset($data[base64_encode($publicKeyCredentialId)]))
-        {
-            error_log(__METHOD__."('$publicKeyCredentialId') returning ".json_encode($data[base64_encode($publicKeyCredentialId)]));
-            return PublicKeyCredentialSource::createFromArray($data[base64_encode($publicKeyCredentialId)]);
+		if (($data = $this->read([
+			'pubkey_credential_id' => base64_encode($publicKeyCredentialId),
+			'pubkey_deleted IS NULL',
+		])))
+		{
+            return PublicKeyCredentialSource::createFromArray(json_decode($data['pubkey_json'], true));
 		}
 		return null;
 	}
 
     /**
+	 * Find all (undeleted) public key credentials of a user
+	 *
+	 * @param PublicKeyCredentialUserEntity $publicKeyCredentialUserEntity
      * @return PublicKeyCredentialSource[]
      */
     public function findAllForUserEntity(PublicKeyCredentialUserEntity $publicKeyCredentialUserEntity): array
 	{
 		$sources = [];
-		foreach($this->read() as $data)
+		foreach((array)$this->search('', 'pubkey_json', '', '', '', false, 'AND', false, [
+			'account_id' => (int)$publicKeyCredentialUserEntity->getId(),
+			'pubkey_deleted IS NULL',
+		]) as $row)
 		{
-			$source = PublicKeyCredentialSource::createFromArray($data);
-			if ($source->getUserHandle() === $publicKeyCredentialUserEntity->getId())
-			{
-				$sources[] = $source;
-			}
+			$sources[] = PublicKeyCredentialSource::createFromArray(json_decode($row['pubkey_json'], true));
 		}
-		error_log(__METHOD__."(".json_encode($publicKeyCredentialUserEntity).") returning ".json_encode($sources));
+		//error_log(__METHOD__."(".json_encode($publicKeyCredentialUserEntity).") returning ".json_encode($sources));
 		return $sources;
 	}
 
+	/**
+	 * Save / persist given public key credentials
+	 *
+	 * @param PublicKeyCredentialSource $publicKeyCredentialSource
+	 */
     public function saveCredentialSource(PublicKeyCredentialSource $publicKeyCredentialSource): void
 	{
-		error_log(__METHOD__."(".json_encode($publicKeyCredentialSource).")");
-		$data = $this->read();
-		$data[base64_encode($publicKeyCredentialSource->getPublicKeyCredentialId())] = $publicKeyCredentialSource;
-		$this->write($data);
+		//error_log(__METHOD__."(".json_encode($publicKeyCredentialSource).")");
+
+		if (!$this->read(['pubkey_credential_id' => base64_encode($publicKeyCredentialSource->getPublicKeyCredentialId())]))
+		{
+			$this->init([
+				'pubkey_created' => time(),
+				'account_id' => (int)$publicKeyCredentialSource->getUserHandle(),
+				'pubkey_credential_id' => base64_encode($publicKeyCredentialSource->getPublicKeyCredentialId()),
+				'pubkey_deleted' => null,
+			]);
+		}
+		$this->save([
+			'pubkey_json' => json_encode($publicKeyCredentialSource, JSON_UNESCAPED_SLASHES),
+		]);
 	}
 
-	private function read(): array
+	/**
+	 * Delete public key credentials
+	 *
+	 * Reimplemented to set pubkey_deleted, if not already set, otherwise delete
+	 *
+	 * @param array|int $keys =null if given array with col => value pairs to characterise the rows to delete, or integer autoinc id
+	 * @param boolean $only_return_query =false NOT supported!
+	 * @return int|array affected rows, should be 1 if ok, 0 if an error or array with id's if $only_return_ids
+	 */
+	public function delete($keys = null, $only_return_query = false)
 	{
-		if (file_exists($this->path))
-		{
-			return json_decode(file_get_contents($this->path), true);
-		}
-		return [];
-	}
+		unset($only_return_query);	// not used, but required by function signature
 
-	private function write(array $data): void
-	{
-		if (!file_exists($this->path))
-		{
-            if (!mkdir($concurrentDirectory = dirname($this->path), 0700, true) && !is_dir($concurrentDirectory))
-			{
-                throw new \RuntimeException(lang('Directory "%1" could not be created!', $concurrentDirectory));
-            }
-		}
-		file_put_contents($this->path, json_encode($data), LOCK_EX);
+		if (!is_array($keys)) $keys = ['pubkey_id' => $keys];
+
+		// finally delete already marked as deleted tokens
+		$keys[999] = 'pubkey_deleted IS NOT NULL';
+		$this->db->delete(self::TABLE, $keys, __LINE__, __FILE__, self::APP);
+		$affected = $this->db->affected_rows();
+
+		// mark rest as of now deleted
+		unset($keys[999]);
+		$this->db->update(self::TABLE, [
+			'pubkey_deleted' => time()
+		], $keys, __LINE__, __FILE__, self::APP);
+		$affected += $this->db->affected_rows();
+
+		return $affected;
 	}
 }

@@ -55,10 +55,10 @@ class Register
 					'no_filter' => true,
 					'no_filter2' => true,
 					'filter_no_lang' => true,
-					'order' => 'token_updated',
+					'order' => 'pubkey_updated',
 					'sort' => 'DESC',
-					'row_id' => 'token_id',
-					'default_cols' => '!client_id',
+					'row_id' => 'pubkey_id',
+					'default_cols' => '!pubkey_credential_id',
 					'actions' => self::tokenActions(),
 				],
 			],
@@ -146,17 +146,16 @@ class Register
 
 			// You can get the Public Key Credential Source. This object should be persisted using the Public Key Credential Source repository
 			$publicKeyCredentialSourceRepository->saveCredentialSource($publicKeyCredentialSource);
+			Api\Framework::message(lang('WebAuthn / U2F token registered'));
 
-
-			//You can also get the PublicKeyCredentialDescriptor.
-			$publicKeyCredentialDescriptor = $publicKeyCredentialSource->getPublicKeyCredentialDescriptor();
+			// You can also get the PublicKeyCredentialDescriptor --> empty for YubiKeys :(
+			//$publicKeyCredentialDescriptor = $publicKeyCredentialSource->getPublicKeyCredentialDescriptor();
 			//error_log('$publicKeyCredential->getPublicKeyCredentialDescriptor()='.json_encode($publicKeyCredentialDescriptor));
 		}
 		catch (\Throwable $e) {
 			_egw_log_exception($e);
 			Api\Framework::message($e->getMessage(), 'error');
 		}
-		Api\Framework::message(lang('Register WebAuthn / U2F token registered'));
 	}
 
 	/**
@@ -176,23 +175,19 @@ class Register
 			self::registration($content['registrationResponse'], $content['registrationOptions']);
 		}
 
-		if (is_array($content) && $content['tabs'] === 'openid.access_tokens' && $content['nm']['selected'])
+		if (is_array($content) && $content['tabs'] === 'webauthn.tokens' && $content['webauthn']['selected'])
 		{
-			throw new \Exception('Not yet implemented :(');
-
-			/*switch($content['nm']['action'])
+			switch($content['webauthn']['action'])
 			{
 				case 'delete':
-					$token_repo = new AccessTokenRepository();
-					$token_repo->revokeAccessToken(['access_token_id' => $content['nm']['selected']]);
-					$refresh_token_repo = new RefreshTokenRepository();
-					$refresh_token_repo->revokeRefreshToken(['access_token_id' => $content['nm']['selected']]);
-					return (count($content['nm']['selected']) > 1 ?
-						count($content['nm']['selected']).' ' : '').
-						lang('Access Token revoked.');
-			}*/
+					$token_repo = new PublicKeyCredentialSourceRepository();
+					$token_repo->delete(['pubkey_id' => $content['webauthn']['selected']]);
+					Api\Framework::message((count($content['webauthn']['selected']) > 1 ?
+						count($content['webauthn']['selected']).' ' : '').lang('Token deleted.'));
+					break;
+			}
 		}
-		unset($content['nm']['selected'], $content['nm']['action'], $content['createResponse']);
+		unset($content['webauthn']['selected'], $content['webauthn']['action'], $content['registrationResponse']);
 	}
 
 	/**
@@ -207,21 +202,18 @@ class Register
 	public static function getTokens(array $query, array &$rows, array &$readonlys)
 	{
 		$token_repo = new PublicKeyCredentialSourceRepository();
-		if (($rows = array_values($token_repo->findAllForUserEntity(PublicKeyCredentialUserEntity::current()))))
+		$query['filter']['account_id'] = $GLOBALS['egw_info']['user']['account_id'];
+		if (($ret = $token_repo->get_rows($query, $rows, $readonlys)))
 		{
 			foreach($rows as $key => &$row)
 			{
 				if (!is_int($key)) continue;
 
-				$row = [
-					'pubkey_credential_id' => base64_encode($row->getPublicKeyCredentialId()),
-					'pubkey_type' => $row->getType(),
-					'pubkey_user_handle' => $row->getUserHandle(),
-					'pubkey_counter' => $row->getCounter(),
-				];
+				$row += json_decode($row['pubkey_json'], true);
+				unset($row['pubkey_json']);
 			}
 		}
-		return count($rows);
+		return $ret;
 	}
 
 	/**
