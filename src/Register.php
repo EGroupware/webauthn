@@ -23,7 +23,7 @@ use Webauthn\Server;
 use Zend\Diactoros\ServerRequestFactory;
 
 /**
- * Display tokens of current user under Preferences >> Password & Security
+ * Register and display tokens of current user under Preferences >> Password & Security
  */
 class Register
 {
@@ -44,7 +44,7 @@ class Register
 		Api\Framework::includeJS('/webauthn/js/app.js');
 
 		return [
-			'label' =>	'Register WebAuthn / U2F tokens',
+			'label' =>	'WebAuthn / U2F tokens',
 			'name' => 'webauthn.tokens',
 			'prepend' => false,
 			'data' => [
@@ -202,7 +202,7 @@ class Register
 	public static function getTokens(array $query, array &$rows, array &$readonlys)
 	{
 		$token_repo = new PublicKeyCredentialSourceRepository();
-		$query['filter']['account_id'] = $GLOBALS['egw_info']['user']['account_id'];
+		$query['col_filter']['account_id'] = $GLOBALS['egw_info']['user']['account_id'];
 		if (($ret = $token_repo->get_rows($query, $rows, $readonlys)))
 		{
 			foreach($rows as $key => &$row)
