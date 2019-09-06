@@ -1,0 +1,7 @@
+attestation	webauthn	de	Beglaubigung
+counter	webauthn	de	Zähler
+credential id	webauthn	de	ID Zugangsdaten
+token deleted.	webauthn	de	Token gelöscht.
+webauthn	common	de	WebAuthentifizierung
+webauthn / u2f token	webauthn	de	WebAuthn / U2F Token
+webauthn / u2f token registered	webauthn	de	WebAuthn / U2F Token registriert

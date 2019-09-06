@@ -1,0 +1,7 @@
+attestation	webauthn	en	Attestation
+counter	webauthn	en	Counter
+credential id	webauthn	en	Credential ID
+token deleted.	webauthn	en	Token deleted.
+webauthn	common	en	WebAuthentication
+webauthn / u2f token	webauthn	en	WebAuthn / U2F Token
+webauthn / u2f token registered	webauthn	en	WebAuthn / U2F token registered
