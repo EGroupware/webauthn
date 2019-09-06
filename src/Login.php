@@ -108,9 +108,15 @@ class Login
 	{
 		//error_log(__METHOD__."(".json_encode($data).") _POST[credentialsResponse]=$_POST[credentialsResponse]");
 
-		if (empty($_SESSION['publicKeyCredentialRequestOptions']) || empty($_POST['credentialsResponse']))
+		if (empty($_SESSION['publicKeyCredentialRequestOptions']))
 		{
-			//error_log(__METHOD__."() credentialsRequestOptions (from session) or credentialsResponse missing");
+			//error_log(__METHOD__."() credentialsRequestOptions (from session) missing");
+			return;
+		}
+		if (empty($_POST['credentialsResponse']))
+		{
+			//error_log(__METHOD__."() credentialsResponse missing, proably aborted by user");
+			$data['errors'][self::APP] = 'credentials response missing, proably aborted by user';
 			return;
 		}
 		$publicKeyCredentialRequestOptions =  PublicKeyCredentialRequestOptions::createFromString($_SESSION['publicKeyCredentialRequestOptions']);
