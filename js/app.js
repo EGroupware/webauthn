@@ -146,7 +146,7 @@ app.classes.webauthn = AppJS.extend(
 				self.et2._inst.submit(widget);
 			})
 			.catch(function(error) {
-				self.egw.message(error.message, 'error');
+				self.egw.message(self.egw.lang(error.message), 'error');
 				console.log('FAIL', error);
 			});
 	}
