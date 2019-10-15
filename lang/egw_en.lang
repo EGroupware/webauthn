@@ -1,6 +1,8 @@
 attestation	webauthn	en	Attestation
 counter	webauthn	en	Counter
 credential id	webauthn	en	Credential ID
+the operation was aborted	webauthn	en	The operation was aborted.
+the request is not allowed by the user agent or the platform in the current context, possibly because the user denied permission.	webauthn	en	The request is not allowed by the user agent or the platform in the current context, possibly because the user denied permission.
 token deleted.	webauthn	en	Token deleted.
 webauthn	common	en	WebAuthentication
 webauthn / u2f token	webauthn	en	WebAuthn / U2F Token
