@@ -52,6 +52,17 @@ class Login
 		if (empty($data['2fa_code']) && !empty($data['login']) &&
 			($account_id = Api\Accounts::getInstance()->name2id($data['login'])))
 		{
+			// check if we already have an other factor (eg. IP-address is configured and matching)
+			$factors = $errors = [];
+			$data = ['factors' => &$factors, 'errors' => &$errors, 'location' => 'multifactor_policy'];
+			try {
+				Api\Hooks::process($data, [], true);
+				if (count($factors)) return;	// IP-address matches, no further factor(s) required
+			}
+			catch (\Exception $e) {
+				_egw_log_exception($e);
+			}
+
 			// Credential Repository
 			$publicKeyCredentialSourceRepository = new PublicKeyCredentialSourceRepository();
 
