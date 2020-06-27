@@ -14,7 +14,7 @@ egw_LAB.wait(function()
 {
 	jQuery(document).ready(function()
 	{
-		jQuery('input[type="submit"]').click(function(event)
+		jQuery('input[type="submit"][name="submitit"]').click(function(event)
 		{
 			event.preventDefault();
 
