@@ -15,9 +15,9 @@ use EGroupware\WebAuthn;
 
 $setup_info['webauthn']['name']    = 'webauthn';
 $setup_info['webauthn']['title']   = 'WebAuthn';
-$setup_info['webauthn']['version'] = '19.1';
+$setup_info['webauthn']['version'] = '19.1.004';
 $setup_info['webauthn']['app_order'] = 1;
-$setup_info['webauthn']['tables']  = array('egw_webauthn_pubkeys');
+$setup_info['webauthn']['tables']  = array();
 $setup_info['webauthn']['enable']  = 2;
 $setup_info['webauthn']['autoinstall'] = true;	// install automatically on update
 
@@ -37,8 +37,6 @@ $setup_info['webauthn']['description'] = 'WebAuthn (Fido2) as 2. Factor for EGro
 //$setup_info['webauthn']['hooks']['admin']   = OpenID\Ui::class.'::menu';
 //$setup_info['webauthn']['hooks']['sidebox']   = OpenID\Ui::class.'::menu';
 $setup_info['webauthn']['hooks']['preferences_security'] = WebAuthn\Register::class.'::security';
-$setup_info['webauthn']['hooks']['login_page'] = WebAuthn\Login::class.'::page';
-$setup_info['webauthn']['hooks']['multifactor_policy'] = WebAuthn\Login::class.'::multifactor';
 
 $setup_info['webauthn']['depends'][] = [
 	'appname' => 'api',

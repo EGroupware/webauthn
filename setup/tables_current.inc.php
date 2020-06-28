@@ -1,12 +1,13 @@
 <?php
 /**
- * EGroupware - Setup
- * https://www.egroupware.org
+ * eGroupWare - Setup
+ * http://www.egroupware.org
  * Created by eTemplates DB-Tools written by ralfbecker@outdoor-training.de
  *
  * @license http://opensource.org/licenses/gpl-license.php GPL - GNU General Public License
  * @package webauthn
  * @subpackage setup
+ * @version $Id$
  */
 
 
