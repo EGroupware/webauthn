@@ -99,7 +99,7 @@ class Login
 				session_name(Api\Session::EGW_SESSION_NAME);
 				ini_set('session.use_cookies', 0);	// disable the automatic use of cookies, as it uses the path / by default
 				session_id(Api\Session::get_sessionid());
-				egw_session::cache_control();
+				Api\Session::cache_control();
 				if (session_status() === PHP_SESSION_NONE) session_start();
 				$_SESSION['publicKeyCredentialRequestOptions'] = $encodedOptions;
 				Api\Session::egw_setcookie(Api\Session::EGW_SESSION_NAME, session_id());
