@@ -18,3 +18,13 @@ function webauthn_upgrade19_1()
 {
 	return $GLOBALS['setup_info']['webauthn']['currentver'] = '20.1';
 }
+
+/**
+ * Bump version to 21.1
+ *
+ * @return string
+ */
+function webauthn_upgrade20_1()
+{
+	return $GLOBALS['setup_info']['webauthn']['currentver'] = '21.1';
+}

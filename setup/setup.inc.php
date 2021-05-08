@@ -15,7 +15,7 @@ use EGroupware\WebAuthn;
 
 $setup_info['webauthn']['name']    = 'webauthn';
 $setup_info['webauthn']['title']   = 'WebAuthn';
-$setup_info['webauthn']['version'] = '20.1';
+$setup_info['webauthn']['version'] = '21.1';
 $setup_info['webauthn']['app_order'] = 1;
 $setup_info['webauthn']['tables']  = array('egw_webauthn_pubkeys');
 $setup_info['webauthn']['enable']  = 2;
@@ -42,6 +42,6 @@ $setup_info['webauthn']['hooks']['multifactor_policy'] = WebAuthn\Login::class.'
 
 $setup_info['webauthn']['depends'][] = [
 	'appname' => 'api',
-	'versions' => ['20.1'],
+	'versions' => ['21.1'],
 ];
 
