@@ -32,6 +32,8 @@ $setup_info['webauthn']['license']  = array(
 	'url'  => 'https://www.egroupware.org/EPL',
 );
 $setup_info['webauthn']['description'] = 'WebAuthn (Fido2) as 2. Factor for EGroupware';
+$setup_info['webauthn']['note'] = 'Part of EPL EGroupware packages from EGroupware GmbH.'."\n".
+	'For more information please visit: <a href="https://www.egroupware.org/EPL" target="_blank">www.egroupware.org/EPL</a>';
 
 // The hooks this app includes, needed for hooks registration
 //$setup_info['webauthn']['hooks']['admin']   = OpenID\Ui::class.'::menu';
@@ -44,4 +46,7 @@ $setup_info['webauthn']['depends'][] = [
 	'appname' => 'api',
 	'versions' => ['21.1'],
 ];
-
+$setup_info['webauthn']['depends'][] = array(
+	'appname' => 'stylite',
+	'versions' => Array('21.1')
+);
