@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE overlay PUBLIC "-//EGroupware GmbH//eTemplate 2//EN" "http://www.egroupware.org/etemplate2.dtd">
+<!DOCTYPE overlay PUBLIC "-//EGroupware GmbH//eTemplate 2.0//EN" "https://www.egroupware.org/etemplate2.0.dtd">
 <overlay>
 	<template id="webauthn.tokens.rows" template="" lang="" group="0" version="1.9.001">
 		<grid width="100%" height="100%">
@@ -13,12 +13,12 @@
 
 				</row>
 				<row class="$row_cont[status_class]">
-					<description id="${row}[pubkey_id]" no_lang="1"/>
-					<vbox>
-						<description id="${row}[type]" no_lang="1"/>
-						<description id="${row}[attestationType]" no_lang="1"/>
-					</vbox>
-					<description id="${row}[counter]" no_lang="1"/>
+					<et2-description  id="${row}[pubkey_id]" noLang="1"></et2-description>
+					<et2-vbox>
+						<et2-description  id="${row}[type]" noLang="1"></et2-description>
+						<et2-description  id="${row}[attestationType]" noLang="1"></et2-description>
+					</et2-vbox>
+					<et2-description  id="${row}[counter]" noLang="1"></et2-description>
 				</row>
 			</rows>
 		</grid>
@@ -29,8 +29,8 @@
 	<template id="webauthn.tokens" template="" lang="" group="0" version="1.9.001">
 		<hidden id="registrationResponse" />
 		<nextmatch id="webauthn" template="webauthn.tokens.rows" header_left="webauthn.tokens.add" />
-		<hbox>
-			<buttononly label=" " id="add" onclick="if (!app.webauthn) app.webauthn = new app.classes.webauthn(); app.webauthn.register(widget)" class="plus_button"/>
-		</hbox>
+		<et2-hbox>
+			<et2-button  label=" " id="add" onclick="if (!app.webauthn) app.webauthn = new app.classes.webauthn(); app.webauthn.register(widget)" class="plus_button" noSubmit="true"></et2-button>
+		</et2-hbox>
 	</template>
 </overlay>
