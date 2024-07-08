@@ -15,6 +15,7 @@
  */
 
 import { EgwApp } from '../../api/js/jsapi/egw_app';
+import { app } from '../../api/js/jsapi/egw_global';
 
 /**
  * WebAuthn client-side

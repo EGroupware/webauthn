@@ -44,7 +44,8 @@ class Register
 		Api\Framework::includeJS('/webauthn/js/app.js');
 
 		return [
-			'label' =>	'WebAuthn / U2F tokens',
+			'label' =>	'WebAuthn',
+			'title' =>	'WebAuthn / U2F tokens',
 			'name' => 'webauthn.tokens',
 			'prepend' => false,
 			'data' => [
