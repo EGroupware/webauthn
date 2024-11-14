@@ -11,10 +11,8 @@
         }
     ],
     "require": {
-		"web-auth/webauthn-lib": "^2.1.3"
+		"web-auth/webauthn-lib": "^3.3.10"
 	},
-    "require-dev": {
-    },
     "autoload": {
         "psr-4": {
             "EGroupware\\WebAuthn\\": "src/"

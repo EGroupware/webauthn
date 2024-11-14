@@ -5,7 +5,7 @@ declare(strict_types=1);
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2018 Spomky-Labs
+ * Copyright (c) 2018-2020 Spomky-Labs
  *
  * This software may be modified and distributed under the terms
  * of the MIT license.  See the LICENSE file for details.
@@ -13,15 +13,18 @@ declare(strict_types=1);
 
 namespace CBOR\OtherObject;
 
-use Assert\Assertion;
+use Brick\Math\BigInteger;
 use CBOR\OtherObject as Base;
+use CBOR\Utils;
+use const INF;
 use InvalidArgumentException;
+use const NAN;
 
 final class SinglePrecisionFloatObject extends Base
 {
     public static function supportedAdditionalInformation(): array
     {
-        return [26];
+        return [self::OBJECT_SINGLE_PRECISION_FLOAT];
     }
 
     public static function createFromLoadedData(int $additionalInformation, ?string $data): Base
@@ -29,61 +32,65 @@ final class SinglePrecisionFloatObject extends Base
         return new self($additionalInformation, $data);
     }
 
-    /**
-     * @return SinglePrecisionFloatObject
-     */
     public static function create(string $value): self
     {
-        if (4 !== mb_strlen($value, '8bit')) {
+        if (mb_strlen($value, '8bit') !== 4) {
             throw new InvalidArgumentException('The value is not a valid single precision floating point');
         }
 
-        return new self(26, $value);
+        return new self(self::OBJECT_SINGLE_PRECISION_FLOAT, $value);
     }
 
+    /**
+     * @deprecated The method will be removed on v3.0. Please rely on the CBOR\Normalizable interface
+     */
     public function getNormalizedData(bool $ignoreTags = false)
     {
-        $data = $this->data;
-        Assertion::string($data, 'Invalid data');
-        $single = gmp_intval(gmp_init(bin2hex($data), 16));
-        $exp = ($single >> 23) & 0xff;
-        $mant = $single & 0x7fffff;
+        return $this->normalize();
+    }
 
-        if (0 === $exp) {
-            $val = $mant * 2 ** (-(126 + 23));
-        } elseif (0b11111111 !== $exp) {
-            $val = ($mant + (1 << 23)) * 2 ** ($exp - (127 + 23));
+    /**
+     * @return float|int
+     */
+    public function normalize()
+    {
+        $exponent = $this->getExponent();
+        $mantissa = $this->getMantissa();
+        $sign = $this->getSign();
+
+        if ($exponent === 0) {
+            $val = $mantissa * 2 ** (-(126 + 23));
+        } elseif ($exponent !== 0b11111111) {
+            $val = ($mantissa + (1 << 23)) * 2 ** ($exponent - (127 + 23));
         } else {
-            $val = 0 === $mant ? INF : NAN;
+            $val = $mantissa === 0 ? INF : NAN;
         }
 
-        return 1 === ($single >> 31) ? -$val : $val;
+        return $sign * $val;
     }
 
     public function getExponent(): int
     {
         $data = $this->data;
-        Assertion::string($data, 'Invalid data');
-        $single = gmp_intval(gmp_init(bin2hex($data), 16));
+        Utils::assertString($data, 'Invalid data');
 
-        return ($single >> 23) & 0xff;
+        return Utils::binToBigInteger($data)->shiftedRight(23)->and(Utils::hexToBigInteger('ff'))->toInt();
     }
 
     public function getMantissa(): int
     {
         $data = $this->data;
-        Assertion::string($data, 'Invalid data');
-        $single = gmp_intval(gmp_init(bin2hex($data), 16));
+        Utils::assertString($data, 'Invalid data');
 
-        return $single & 0x7fffff;
+        return Utils::binToBigInteger($data)->and(Utils::hexToBigInteger('7fffff'))->toInt();
     }
 
     public function getSign(): int
     {
         $data = $this->data;
-        Assertion::string($data, 'Invalid data');
-        $single = gmp_intval(gmp_init(bin2hex($data), 16));
+        Utils::assertString($data, 'Invalid data');
+        $sign = Utils::binToBigInteger($data)->shiftedRight(31);
 
-        return 1 === ($single >> 31) ? -1 : 1;
+        return $sign->isEqualTo(BigInteger::one()) ? -1 : 1;
     }
 }

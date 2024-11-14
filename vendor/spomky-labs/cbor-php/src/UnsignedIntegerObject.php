@@ -5,7 +5,7 @@ declare(strict_types=1);
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2018 Spomky-Labs
+ * Copyright (c) 2018-2020 Spomky-Labs
  *
  * This software may be modified and distributed under the terms
  * of the MIT license.  See the LICENSE file for details.
@@ -13,11 +13,13 @@ declare(strict_types=1);
 
 namespace CBOR;
 
+use Brick\Math\BigInteger;
 use InvalidArgumentException;
+use const STR_PAD_LEFT;
 
-final class UnsignedIntegerObject extends AbstractCBORObject
+final class UnsignedIntegerObject extends AbstractCBORObject implements Normalizable
 {
-    private const MAJOR_TYPE = 0b000;
+    private const MAJOR_TYPE = self::MAJOR_TYPE_UNSIGNED_INTEGER;
 
     /**
      * @var string|null
@@ -30,6 +32,16 @@ final class UnsignedIntegerObject extends AbstractCBORObject
         $this->data = $data;
     }
 
+    public function __toString(): string
+    {
+        $result = parent::__toString();
+        if ($this->data !== null) {
+            $result .= $this->data;
+        }
+
+        return $result;
+    }
+
     public static function createObjectForValue(int $additionalInformation, ?string $data): self
     {
         return new self($additionalInformation, $data);
@@ -37,37 +49,21 @@ final class UnsignedIntegerObject extends AbstractCBORObject
 
     public static function create(int $value): self
     {
-        return self::createFromGmpValue(gmp_init($value));
+        return self::createFromString((string) $value);
     }
 
-    public static function createFromGmpValue(\GMP $value): self
+    public static function createFromHex(string $value): self
     {
-        if (gmp_cmp($value, gmp_init(0)) < 0) {
-            throw new InvalidArgumentException('The value must be a positive integer.');
-        }
+        $integer = BigInteger::fromBase($value, 16);
 
-        switch (true) {
-            case gmp_cmp($value, gmp_init(24)) < 0:
-                $ai = gmp_intval($value);
-                $data = null;
-                break;
-            case gmp_cmp($value, gmp_init('FF', 16)) < 0:
-                $ai = 24;
-                $data = self::hex2bin(str_pad(gmp_strval($value, 16), 2, '0', STR_PAD_LEFT));
-                break;
-            case gmp_cmp($value, gmp_init('FFFF', 16)) < 0:
-                $ai = 25;
-                $data = self::hex2bin(str_pad(gmp_strval($value, 16), 4, '0', STR_PAD_LEFT));
-                break;
-            case gmp_cmp($value, gmp_init('FFFFFFFF', 16)) < 0:
-                $ai = 26;
-                $data = self::hex2bin(str_pad(gmp_strval($value, 16), 8, '0', STR_PAD_LEFT));
-                break;
-            default:
-                throw new InvalidArgumentException('Out of range. Please use PositiveBigIntegerTag tag with ByteStringObject object instead.');
-        }
+        return self::createBigInteger($integer);
+    }
 
-        return new self($ai, $data);
+    public static function createFromString(string $value): self
+    {
+        $integer = BigInteger::of($value);
+
+        return self::createBigInteger($integer);
     }
 
     public function getMajorType(): int
@@ -75,39 +71,66 @@ final class UnsignedIntegerObject extends AbstractCBORObject
         return self::MAJOR_TYPE;
     }
 
-    public function getAdditionalInformation(): int
-    {
-        return $this->additionalInformation;
-    }
-
     public function getValue(): string
     {
-        return $this->getNormalizedData();
+        if ($this->data === null) {
+            return (string) $this->additionalInformation;
+        }
+
+        $integer = BigInteger::fromBase(bin2hex($this->data), 16);
+
+        return $integer->toBase(10);
     }
 
+    public function normalize(): string
+    {
+        return $this->getValue();
+    }
+
+    /**
+     * @deprecated The method will be removed on v3.0. Please rely on the CBOR\Normalizable interface
+     */
     public function getNormalizedData(bool $ignoreTags = false): string
     {
-        if (null === $this->data) {
-            return \strval($this->additionalInformation);
-        }
-
-        return gmp_strval(gmp_init(bin2hex($this->data), 16), 10);
+        return $this->getValue();
     }
 
-    public function __toString(): string
+    private static function createBigInteger(BigInteger $integer): self
     {
-        $result = parent::__toString();
-        if (null !== $this->data) {
-            $result .= $this->data;
+        if ($integer->isLessThan(BigInteger::zero())) {
+            throw new InvalidArgumentException('The value must be a positive integer.');
         }
 
-        return $result;
+        switch (true) {
+            case $integer->isLessThan(BigInteger::of(24)):
+                $ai = $integer->toInt();
+                $data = null;
+                break;
+            case $integer->isLessThan(BigInteger::fromBase('FF', 16)):
+                $ai = 24;
+                $data = self::hex2bin(str_pad($integer->toBase(16), 2, '0', STR_PAD_LEFT));
+                break;
+            case $integer->isLessThan(BigInteger::fromBase('FFFF', 16)):
+                $ai = 25;
+                $data = self::hex2bin(str_pad($integer->toBase(16), 4, '0', STR_PAD_LEFT));
+                break;
+            case $integer->isLessThan(BigInteger::fromBase('FFFFFFFF', 16)):
+                $ai = 26;
+                $data = self::hex2bin(str_pad($integer->toBase(16), 8, '0', STR_PAD_LEFT));
+                break;
+            default:
+                throw new InvalidArgumentException(
+                    'Out of range. Please use PositiveBigIntegerTag tag with ByteStringObject object instead.'
+                );
+        }
+
+        return new self($ai, $data);
     }
 
     private static function hex2bin(string $data): string
     {
         $result = hex2bin($data);
-        if (false === $result) {
+        if ($result === false) {
             throw new InvalidArgumentException('Unable to convert the data');
         }
 
