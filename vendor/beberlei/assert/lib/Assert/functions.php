@@ -24,8 +24,6 @@ namespace Assert;
  * @param string|callable|null $defaultMessage
  * @param string $defaultPropertyPath
  *
- * @return AssertionChain
- *
  * @example
  *
  *  \Assert\that($value)->notEmpty()->integer();
@@ -34,7 +32,7 @@ namespace Assert;
  * The assertion chain can be stateful, that means be careful when you reuse
  * it. You should never pass around the chain.
  */
-function that($value, $defaultMessage = null, string $defaultPropertyPath = null): AssertionChain
+function that($value, $defaultMessage = null, ?string $defaultPropertyPath = null): AssertionChain
 {
     return Assert::that($value, $defaultMessage, $defaultPropertyPath);
 }
@@ -45,10 +43,8 @@ function that($value, $defaultMessage = null, string $defaultPropertyPath = null
  * @param mixed $values
  * @param string|callable|null $defaultMessage
  * @param string $defaultPropertyPath
- *
- * @return AssertionChain
  */
-function thatAll($values, $defaultMessage = null, string $defaultPropertyPath = null): AssertionChain
+function thatAll($values, $defaultMessage = null, ?string $defaultPropertyPath = null): AssertionChain
 {
     return Assert::thatAll($values, $defaultMessage, $defaultPropertyPath);
 }
@@ -60,19 +56,15 @@ function thatAll($values, $defaultMessage = null, string $defaultPropertyPath = 
  * @param string|callable|null $defaultMessage
  * @param string $defaultPropertyPath
  *
- * @return AssertionChain
- *
  * @deprecated In favour of Assert::thatNullOr($value, $defaultMessage = null, $defaultPropertyPath = null)
  */
-function thatNullOr($value, $defaultMessage = null, string $defaultPropertyPath = null): AssertionChain
+function thatNullOr($value, $defaultMessage = null, ?string $defaultPropertyPath = null): AssertionChain
 {
     return Assert::thatNullOr($value, $defaultMessage, $defaultPropertyPath);
 }
 
 /**
  * Create a lazy assertion object.
- *
- * @return LazyAssertion
  */
 function lazy(): LazyAssertion
 {
