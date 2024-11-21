@@ -42,7 +42,7 @@ class PublicKeyCredentialUserEntity extends Webauthn\PublicKeyCredentialUserEnti
 	{
 		if (!($account = Api\Accounts::getInstance()->read($account_id)))
 		{
-			throw Api\Exception\NotFound("Invalid account_id #$account_id");
+			throw new Api\Exception\NotFound("Invalid account_id #$account_id");
 		}
 		return new self(
 			'@'.$account['account_lid'],	//Name
