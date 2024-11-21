@@ -120,10 +120,20 @@ class Login
 		//error_log(__METHOD__."(".json_encode($data).") _POST[credentialsResponse]=$_POST[credentialsResponse]");
 
 		// Check if user has WebAuthN configured
-		if (PublicKeyCredentialRpEntity::own())
-		{
-			$data['errors'][self::APP] = lang('WebAuthN token or passkey required!');
+		$userEntity = PublicKeyCredentialUserEntity::get($GLOBALS['egw_info']['user']['account_id'] ??
+			Api\Accounts::getInstance()->name2id($_POST['login']));
+		$repo = new PublicKeyCredentialSourceRepository();
+		try {
+			$registeredPublicKeyCredentialSources = $repo->findAllForUserEntity($userEntity);
+			if (count($registeredPublicKeyCredentialSources))
+			{
+				$data['errors'][self::APP] = lang('WebAuthN token or passkey required!');
+			}
 		}
+		catch (Api\Exception\NotFound $e) {
+			// user has not WebAuthN token registered, therefore NOT setting the above error
+		}
+
 
 		if (empty($_SESSION['publicKeyCredentialRequestOptions']))
 		{
