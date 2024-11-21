@@ -52,7 +52,7 @@ class Login
 		if (empty($data['2fa_code']) && !empty($data['login']) &&
 			($account_id = Api\Accounts::getInstance()->name2id($data['login'])))
 		{
-			// check if we already have an other factor (eg. IP-address is configured and matching)
+			// check if we already have another factor (e.g. IP-address is configured and matching)
 			$factors = $errors = [];
 			$data = ['factors' => &$factors, 'errors' => &$errors, 'location' => 'multifactor_policy'];
 			try {
@@ -119,6 +119,12 @@ class Login
 	{
 		//error_log(__METHOD__."(".json_encode($data).") _POST[credentialsResponse]=$_POST[credentialsResponse]");
 
+		// Check if user has WebAuthN configured
+		if (PublicKeyCredentialRpEntity::own())
+		{
+			$data['errors'][self::APP] = lang('WebAuthN token or passkey required!');
+		}
+
 		if (empty($_SESSION['publicKeyCredentialRequestOptions']))
 		{
 			//error_log(__METHOD__."() credentialsRequestOptions (from session) missing");
@@ -126,8 +132,8 @@ class Login
 		}
 		if (empty($_POST['credentialsResponse']))
 		{
-			//error_log(__METHOD__."() credentialsResponse missing, proably aborted by user");
-			$data['errors'][self::APP] = 'credentials response missing, proably aborted by user';
+			//error_log(__METHOD__."() credentialsResponse missing, probably aborted by user");
+			$data['errors'][self::APP] = 'credentials response missing, probably aborted by user';
 			return;
 		}
 		$publicKeyCredentialRequestOptions =  PublicKeyCredentialRequestOptions::createFromString($_SESSION['publicKeyCredentialRequestOptions']);
@@ -166,6 +172,7 @@ class Login
 
 			// report our now verified factor
 			$data['factors'][self::APP] = true;
+			unset($data['errors'][self::APP]);
 		}
 		catch (Throwable $throwable)
 		{
