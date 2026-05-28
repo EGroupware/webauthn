@@ -11,7 +11,8 @@
         }
     ],
     "require": {
-		"web-auth/webauthn-lib": "^3.3.10"
+		"web-auth/webauthn-lib": "^3.3.10",
+		"zendframework/zend-diactoros": "^2.0"
 	},
     "autoload": {
         "psr-4": {

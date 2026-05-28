@@ -3,7 +3,7 @@
         'name' => 'egroupware/webauthn',
         'pretty_version' => 'dev-master',
         'version' => 'dev-master',
-        'reference' => '46af88a72c24509470333a14e719aad4b59ac800',
+        'reference' => '9bef18ef236b92a5611c06226c59e0807b70cd39',
         'type' => 'egroupware-app',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -31,7 +31,7 @@
         'egroupware/webauthn' => array(
             'pretty_version' => 'dev-master',
             'version' => 'dev-master',
-            'reference' => '46af88a72c24509470333a14e719aad4b59ac800',
+            'reference' => '9bef18ef236b92a5611c06226c59e0807b70cd39',
             'type' => 'egroupware-app',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
@@ -82,6 +82,12 @@
             'aliases' => array(),
             'dev_requirement' => false,
         ),
+        'psr/http-factory-implementation' => array(
+            'dev_requirement' => false,
+            'provided' => array(
+                0 => '1.0',
+            ),
+        ),
         'psr/http-message' => array(
             'pretty_version' => '1.1',
             'version' => '1.1.0.0',
@@ -90,6 +96,12 @@
             'install_path' => __DIR__ . '/../psr/http-message',
             'aliases' => array(),
             'dev_requirement' => false,
+        ),
+        'psr/http-message-implementation' => array(
+            'dev_requirement' => false,
+            'provided' => array(
+                0 => '1.0',
+            ),
         ),
         'psr/log' => array(
             'pretty_version' => '1.1.4',
@@ -193,6 +205,15 @@
             'reference' => '5ef9b21c8e9f8a817e524ac93290d08a9f065b33',
             'type' => 'library',
             'install_path' => __DIR__ . '/../web-auth/webauthn-lib',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
+        'zendframework/zend-diactoros' => array(
+            'pretty_version' => '2.2.1',
+            'version' => '2.2.1.0',
+            'reference' => 'de5847b068362a88684a55b0dbb40d85986cfa52',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../zendframework/zend-diactoros',
             'aliases' => array(),
             'dev_requirement' => false,
         ),
