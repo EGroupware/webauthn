@@ -4,7 +4,7 @@
  *
  * @link https://www.egroupware.org
  * @package webauthn
- * @license https://www.egroupware.org/EPL EPL - EGroupware EPL License
+ * @license http://opensource.org/licenses/gpl-license.php GPL - GNU General Public License
  */
 
 namespace EGroupware\WebAuthn;

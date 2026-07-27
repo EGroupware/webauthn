@@ -5,7 +5,7 @@
  * @link https://www.egroupware.org
  * @author Ralf Becker <rb-At-egroupware.org>
  * @package webauthn
- * @license https://www.egroupware.org/EPL EPL - EGroupware EPL License
+ * @license http://opensource.org/licenses/gpl-license.php GPL - GNU General Public License
  *
  * Based on the following MIT Licensed packages:
  * @link https://github.com/web-auth/webauthn-framework
@@ -27,13 +27,8 @@ $setup_info['webauthn']['maintainer'] = [
 	'email' => 'rb@egroupware.org',
 	'url'   => 'https://www.egroupware.org',
 ];
-$setup_info['webauthn']['license']  = array(
-	'name' => 'EGroupware EPL license',
-	'url'  => 'https://www.egroupware.org/EPL',
-);
+$setup_info['webauthn']['license']  = 'GPL';
 $setup_info['webauthn']['description'] = 'WebAuthn (Fido2) as 2. Factor for EGroupware';
-$setup_info['webauthn']['note'] = 'Part of EPL EGroupware packages from EGroupware GmbH.'."\n".
-	'For more information please visit: <a href="https://www.egroupware.org/EPL" target="_blank">www.egroupware.org/EPL</a>';
 
 // The hooks this app includes, needed for hooks registration
 //$setup_info['webauthn']['hooks']['admin']   = OpenID\Ui::class.'::menu';
@@ -46,7 +41,3 @@ $setup_info['webauthn']['depends'][] = [
 	'appname' => 'api',
 	'versions' => ['26.1'],
 ];
-$setup_info['webauthn']['depends'][] = array(
-	'appname' => 'stylite',
-	'versions' => Array('26.1')
-);

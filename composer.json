@@ -3,7 +3,7 @@
 	"description": "EGroupware WebAuthn authentication",
 	"type": "egroupware-app",
 	"homepage": "https://www.egroupware.org/",
-	"license": "EPL",
+	"license": "GPL-2.0-or-later",
 	"authors": [
         {
             "name": "Ralf Becker",

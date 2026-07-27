@@ -5,7 +5,7 @@
  * @link https://www.egroupware.org
  * @author Ralf Becker <rb-At-egroupware.org>
  * @package webauthn
- * @license https://www.egroupware.org/EPL EPL - EGroupware EPL License
+ * @license http://opensource.org/licenses/gpl-license.php GPL - GNU General Public License
  *
  * Based on the following MIT Licensed packages:
  * @link https://github.com/web-auth/webauthn-framework
