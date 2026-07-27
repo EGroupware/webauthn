@@ -13,9 +13,6 @@
 
 namespace EGroupware\WebAuthn;
 
-// explicitly include autoloader for our own vendor directory
-include __DIR__.'/../vendor/autoload.php';
-
 use EGroupware\Api;
 use Webauthn\AttestationStatement\AttestationStatementSupportManager;
 use Webauthn\CredentialRecord;

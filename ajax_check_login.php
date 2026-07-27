@@ -19,9 +19,6 @@ $GLOBALS['egw_info'] = array('flags' => array(
 
 require('../header.inc.php');
 
-// explicitly include autoloader for our own vendor directory
-include __DIR__.'/vendor/autoload.php';
-
 use EGroupware\WebAuthn\Login;
 
 echo Login::ajax_login($_POST);

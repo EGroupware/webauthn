@@ -10,7 +10,6 @@
 namespace EGroupware\WebAuthn;
 
 require_once __DIR__.'/../../api/tests/LoggedInTest.php';
-require_once __DIR__.'/../vendor/autoload.php';
 
 use EGroupware\Api;
 use EGroupware\Api\LoggedInTest;

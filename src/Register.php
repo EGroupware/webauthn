@@ -13,9 +13,6 @@
 
 namespace EGroupware\WebAuthn;
 
-// explicitly include autoloader for our own vendor directory
-include __DIR__.'/../vendor/autoload.php';
-
 use Cose\Algorithm\Manager as CoseAlgorithmManager;
 use Cose\Algorithm\Signature\ECDSA\ES256;
 use Cose\Algorithm\Signature\RSA\RS256;

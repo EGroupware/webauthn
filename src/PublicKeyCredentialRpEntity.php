@@ -13,7 +13,11 @@
 
 namespace EGroupware\WebAuthn;
 
-class PublicKeyCredentialRpEntity extends Webauthn\PublicKeyCredentialRpEntity
+// leading backslash required: unqualified "Webauthn\..." would resolve relative to this
+// namespace (EGroupware\WebAuthn\Webauthn\...) - that only worked while this app had its own
+// vendor/, via api/src/autoload.php's private-vendor bridge fallback, now that web-auth/webauthn-lib
+// is installed in the shared root vendor/ instead
+class PublicKeyCredentialRpEntity extends \Webauthn\PublicKeyCredentialRpEntity
 {
 	/**
 	 * Get own RP entity
