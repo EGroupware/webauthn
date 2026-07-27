@@ -37,7 +37,10 @@ class Login
 	{
 		unset($data);	// not used, but required by function signature
 
-		Api\Framework::includeJS('/webauthn/js/login.js');
+		// cache-bust: browsers otherwise keep serving a stale cached copy (this static asset has
+		// no other versioning) for as long as the webserver's Cache-Control allows - matches the
+		// same pattern api/src/Framework/Login.php uses for the core login.js
+		Api\Framework::includeJS('/webauthn/js/login.js?'.filemtime(EGW_SERVER_ROOT.'/webauthn/js/login.js'));
 	}
 
 	/**
