@@ -16,16 +16,28 @@
         }
     ],
     "require": {
-        "php": ">=7.2",
+        "php": ">=8.1",
         "ext-json": "*",
         "ext-openssl": "*",
-        "ext-mbstring": "*",
-        "fgrosse/phpasn1": "^2.1",
-        "beberlei/assert": "^3.2"
+        "brick/math": "^0.9|^0.10|^0.11|^0.12|^0.13|^0.14|^0.15|^0.16|^0.17|^0.18",
+        "spomky-labs/pki-framework": "^1.0"
+    },
+    "require-dev": {
+        "spomky-labs/cbor-php": "^3.2.2"
     },
     "autoload": {
         "psr-4": {
             "Cose\\": "src/"
         }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Cose\\Tests\\": "tests/"
+        }
+    },
+    "suggest": {
+        "ext-gmp": "For better performance, please install either GMP (recommended) or BCMath extension",
+        "ext-bcmath": "For better performance, please install either GMP (recommended) or BCMath extension",
+        "spomky-labs/cbor-php": "For COSE Signature support"
     }
 }

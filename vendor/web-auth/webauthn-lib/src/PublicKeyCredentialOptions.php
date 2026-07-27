@@ -2,103 +2,53 @@
 
 declare(strict_types=1);
 
-/*
- * The MIT License (MIT)
- *
- * Copyright (c) 2014-2021 Spomky-Labs
- *
- * This software may be modified and distributed under the terms
- * of the MIT license.  See the LICENSE file for details.
- */
-
 namespace Webauthn;
 
-use JsonSerializable;
+use function in_array;
+use InvalidArgumentException;
+use function is_string;
+use function sprintf;
 use Webauthn\AuthenticationExtensions\AuthenticationExtension;
-use Webauthn\AuthenticationExtensions\AuthenticationExtensionsClientInputs;
+use Webauthn\AuthenticationExtensions\AuthenticationExtensions;
 
-abstract class PublicKeyCredentialOptions implements JsonSerializable
+abstract class PublicKeyCredentialOptions
 {
-    /**
-     * @var string
-     */
-    protected $challenge;
+    public const HINT_SECURITY_KEY = 'security-key';
+
+    public const HINT_CLIENT_DEVICE = 'client-device';
+
+    public const HINT_HYBRID = 'hybrid';
+
+    public const HINTS = [self::HINT_SECURITY_KEY, self::HINT_CLIENT_DEVICE, self::HINT_HYBRID];
+
+    public AuthenticationExtensions $extensions;
 
     /**
-     * @var int|null
+     * @param positive-int|null $timeout
+     * @param null|AuthenticationExtensions|array<array-key, AuthenticationExtension> $extensions
+     * @param string[] $hints
+     * @protected
      */
-    protected $timeout;
-
-    /**
-     * @var AuthenticationExtensionsClientInputs
-     */
-    protected $extensions;
-
-    public function __construct(string $challenge, ?int $timeout = null, ?AuthenticationExtensionsClientInputs $extensions = null)
-    {
-        if (null !== $timeout) {
-            @trigger_error('The argument "timeout" is deprecated since version 3.3 and will be removed in 4.0. Please use the method "setTimeout".', E_USER_DEPRECATED);
-        }
-        if (null !== $extensions) {
-            @trigger_error('The argument "extensions" is deprecated since version 3.3 and will be removed in 4.0. Please use the method "addExtension" or "addExtensions".', E_USER_DEPRECATED);
-        }
-        $this->challenge = $challenge;
-        $this->setTimeout($timeout);
-        $this->extensions = $extensions ?? new AuthenticationExtensionsClientInputs();
-    }
-
-    public function setTimeout(?int $timeout): self
-    {
-        $this->timeout = $timeout;
-
-        return $this;
-    }
-
-    public function addExtension(AuthenticationExtension $extension): self
-    {
-        $this->extensions->add($extension);
-
-        return $this;
-    }
-
-    /**
-     * @param AuthenticationExtension[] $extensions
-     */
-    public function addExtensions(array $extensions): self
-    {
-        foreach ($extensions as $extension) {
-            $this->addExtension($extension);
+    public function __construct(
+        public string $challenge,
+        public null|int $timeout = null,
+        null|array|AuthenticationExtensions $extensions = null,
+        public array $hints = [],
+    ) {
+        ($this->timeout === null || $this->timeout > 0) || throw new InvalidArgumentException('Invalid timeout');
+        if ($extensions === null) {
+            $this->extensions = AuthenticationExtensions::create();
+        } elseif ($extensions instanceof AuthenticationExtensions) {
+            $this->extensions = $extensions;
+        } else {
+            $this->extensions = AuthenticationExtensions::create($extensions);
         }
 
-        return $this;
+        foreach ($this->hints as $hint) {
+            is_string($hint) || throw new InvalidArgumentException('Invalid hint: hints must be strings');
+            in_array($hint, self::HINTS, true) || throw new InvalidArgumentException(
+                sprintf('Invalid hint "%s". Allowed values are: %s', $hint, implode(', ', self::HINTS))
+            );
+        }
     }
-
-    public function setExtensions(AuthenticationExtensionsClientInputs $extensions): self
-    {
-        $this->extensions = $extensions;
-
-        return $this;
-    }
-
-    public function getChallenge(): string
-    {
-        return $this->challenge;
-    }
-
-    public function getTimeout(): ?int
-    {
-        return $this->timeout;
-    }
-
-    public function getExtensions(): AuthenticationExtensionsClientInputs
-    {
-        return $this->extensions;
-    }
-
-    abstract public static function createFromString(string $data): self;
-
-    /**
-     * @param mixed[] $json
-     */
-    abstract public static function createFromArray(array $json): self;
 }

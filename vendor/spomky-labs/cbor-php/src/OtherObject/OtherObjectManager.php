@@ -2,36 +2,32 @@
 
 declare(strict_types=1);
 
-/*
- * The MIT License (MIT)
- *
- * Copyright (c) 2018-2020 Spomky-Labs
- *
- * This software may be modified and distributed under the terms
- * of the MIT license.  See the LICENSE file for details.
- */
-
 namespace CBOR\OtherObject;
 
 use function array_key_exists;
-use CBOR\OtherObject;
 use InvalidArgumentException;
 
-/**
- * @final
- */
-class OtherObjectManager implements OtherObjectManagerInterface
+final class OtherObjectManager implements OtherObjectManagerInterface
 {
     /**
-     * @var string[]
+     * @param  class-string<OtherObjectInterface>[] $classes
      */
-    private $classes = [];
-
-    public static function create(): self
-    {
-        return new self();
+    public function __construct(
+        private array $classes = [],
+    ) {
     }
 
+    /**
+     * @param  class-string<OtherObjectInterface>[] $classes
+     */
+    public static function create(array $classes = []): self
+    {
+        return new self($classes);
+    }
+
+    /**
+     * @param class-string<OtherObjectInterface> $class
+     */
     public function add(string $class): self
     {
         foreach ($class::supportedAdditionalInformation() as $ai) {
@@ -44,14 +40,16 @@ class OtherObjectManager implements OtherObjectManagerInterface
         return $this;
     }
 
+    /**
+     * @return class-string<OtherObjectInterface>
+     */
     public function getClassForValue(int $value): string
     {
         return array_key_exists($value, $this->classes) ? $this->classes[$value] : GenericObject::class;
     }
 
-    public function createObjectForValue(int $value, ?string $data): OtherObject
+    public function createObjectForValue(int $value, ?string $data): OtherObjectInterface
     {
-        /** @var OtherObject $class */
         $class = $this->getClassForValue($value);
 
         return $class::createFromLoadedData($value, $data);

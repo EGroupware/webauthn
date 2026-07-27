@@ -33,9 +33,9 @@ class PublicKeyCredentialUserEntityTest extends LoggedInTest
 		$account_id = $GLOBALS['egw_info']['user']['account_id'];
 		$install_id = $GLOBALS['egw_info']['server']['install_id'];
 
-		$this->assertSame('@'.$GLOBALS['egw_info']['user']['account_lid'], $userEntity->getName());
-		$this->assertSame($account_id.'-'.$install_id, $userEntity->getId());
-		$this->assertSame($GLOBALS['egw_info']['user']['account_fullname'], $userEntity->getDisplayName());
+		$this->assertSame('@'.$GLOBALS['egw_info']['user']['account_lid'], $userEntity->name);
+		$this->assertSame($account_id.'-'.$install_id, $userEntity->id);
+		$this->assertSame($GLOBALS['egw_info']['user']['account_fullname'], $userEntity->displayName);
 	}
 
 	/**
@@ -49,9 +49,9 @@ class PublicKeyCredentialUserEntityTest extends LoggedInTest
 
 		$userEntity = PublicKeyCredentialUserEntity::get($account_id);
 
-		$this->assertSame('@'.$account['account_lid'], $userEntity->getName());
-		$this->assertSame($account_id.'-'.$GLOBALS['egw_info']['server']['install_id'], $userEntity->getId());
-		$this->assertSame($account['account_fullname'], $userEntity->getDisplayName());
+		$this->assertSame('@'.$account['account_lid'], $userEntity->name);
+		$this->assertSame($account_id.'-'.$GLOBALS['egw_info']['server']['install_id'], $userEntity->id);
+		$this->assertSame($account['account_fullname'], $userEntity->displayName);
 	}
 
 	/**

@@ -13,12 +13,22 @@
 
 namespace EGroupware\WebAuthn;
 
-use EGroupware\Api;
-use Webauthn\PublicKeyCredentialSourceRepository as PublicKeyCredentialSourceRepositoryInterface;
-use Webauthn\PublicKeyCredentialSource;
-use Webauthn\PublicKeyCredentialUserEntity;
+// explicitly include autoloader for our own vendor directory
+include __DIR__.'/../vendor/autoload.php';
 
-class PublicKeyCredentialSourceRepository  extends Api\Storage\Base implements PublicKeyCredentialSourceRepositoryInterface
+use EGroupware\Api;
+use Webauthn\AttestationStatement\AttestationStatementSupportManager;
+use Webauthn\CredentialRecord;
+use Webauthn\Denormalizer\WebauthnSerializerFactory;
+use Webauthn\PublicKeyCredentialUserEntity;
+use Symfony\Component\Serializer\SerializerInterface;
+
+/**
+ * Note: webauthn-lib 5.x no longer defines a PublicKeyCredentialSourceRepository interface
+ * (the validator classes take an already-looked-up CredentialRecord instead), so this class
+ * is a plain repository with the same method names as before, not an interface implementation.
+ */
+class PublicKeyCredentialSourceRepository extends Api\Storage\Base
 {
 	const APP = 'webauthn';
 
@@ -36,19 +46,34 @@ class PublicKeyCredentialSourceRepository  extends Api\Storage\Base implements P
 	}
 
 	/**
+	 * Shared (de)serializer for PublicKeyCredentialSource / options / responses, as recommended
+	 * by webauthn-lib 5.x (jsonSerialize()/createFromArray() were removed from those classes)
+	 *
+	 * @return SerializerInterface
+	 */
+	public static function serializer() : SerializerInterface
+	{
+		return (new WebauthnSerializerFactory(new AttestationStatementSupportManager()))->create();
+	}
+
+	/**
 	 * Find public key credentials by their ID
 	 *
+	 * Deserializes into CredentialRecord, not the (webauthn-lib 5.3+ deprecated, removed in 6.0)
+	 * PublicKeyCredentialSource subclass - old rows stored by the earlier PublicKeyCredentialSource
+	 * are field-for-field compatible, CredentialRecord just has no extra properties of its own.
+	 *
 	 * @param string $publicKeyCredentialId
-	 * @return PublicKeyCredentialSource|null
+	 * @return CredentialRecord|null
 	 */
-    public function findOneByCredentialId(string $publicKeyCredentialId): ?PublicKeyCredentialSource
+    public function findOneByCredentialId(string $publicKeyCredentialId): ?CredentialRecord
 	{
 		if (($data = $this->read([
 			'pubkey_credential_id' => base64_encode($publicKeyCredentialId),
 			'pubkey_deleted IS NULL',
 		])))
 		{
-            return PublicKeyCredentialSource::createFromArray(json_decode($data['pubkey_json'], true));
+            return self::serializer()->deserialize($data['pubkey_json'], CredentialRecord::class, 'json');
 		}
 		return null;
 	}
@@ -57,17 +82,17 @@ class PublicKeyCredentialSourceRepository  extends Api\Storage\Base implements P
 	 * Find all (undeleted) public key credentials of a user
 	 *
 	 * @param PublicKeyCredentialUserEntity $publicKeyCredentialUserEntity
-     * @return PublicKeyCredentialSource[]
+     * @return CredentialRecord[]
      */
     public function findAllForUserEntity(PublicKeyCredentialUserEntity $publicKeyCredentialUserEntity): array
 	{
 		$sources = [];
 		foreach((array)$this->search('', 'pubkey_json', '', '', '', false, 'AND', false, [
-			'account_id' => (int)$publicKeyCredentialUserEntity->getId(),
+			'account_id' => (int)$publicKeyCredentialUserEntity->id,
 			'pubkey_deleted IS NULL',
 		]) as $row)
 		{
-			$sources[] = PublicKeyCredentialSource::createFromArray(json_decode($row['pubkey_json'], true));
+			$sources[] = self::serializer()->deserialize($row['pubkey_json'], CredentialRecord::class, 'json');
 		}
 		//error_log(__METHOD__."(".json_encode($publicKeyCredentialUserEntity).") returning ".json_encode($sources));
 		return $sources;
@@ -76,23 +101,23 @@ class PublicKeyCredentialSourceRepository  extends Api\Storage\Base implements P
 	/**
 	 * Save / persist given public key credentials
 	 *
-	 * @param PublicKeyCredentialSource $publicKeyCredentialSource
+	 * @param CredentialRecord $publicKeyCredentialSource
 	 */
-    public function saveCredentialSource(PublicKeyCredentialSource $publicKeyCredentialSource): void
+    public function saveCredentialSource(CredentialRecord $publicKeyCredentialSource): void
 	{
 		//error_log(__METHOD__."(".json_encode($publicKeyCredentialSource).")");
 
-		if (!$this->read(['pubkey_credential_id' => base64_encode($publicKeyCredentialSource->getPublicKeyCredentialId())]))
+		if (!$this->read(['pubkey_credential_id' => base64_encode($publicKeyCredentialSource->publicKeyCredentialId)]))
 		{
 			$this->init([
 				'pubkey_created' => time(),
-				'account_id' => (int)$publicKeyCredentialSource->getUserHandle(),
-				'pubkey_credential_id' => base64_encode($publicKeyCredentialSource->getPublicKeyCredentialId()),
+				'account_id' => (int)$publicKeyCredentialSource->userHandle,
+				'pubkey_credential_id' => base64_encode($publicKeyCredentialSource->publicKeyCredentialId),
 				'pubkey_deleted' => null,
 			]);
 		}
 		$this->save([
-			'pubkey_json' => json_encode($publicKeyCredentialSource, JSON_UNESCAPED_SLASHES),
+			'pubkey_json' => self::serializer()->serialize($publicKeyCredentialSource, 'json'),
 		]);
 	}
 

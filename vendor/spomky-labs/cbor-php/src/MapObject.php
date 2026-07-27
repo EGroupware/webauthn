@@ -2,15 +2,6 @@
 
 declare(strict_types=1);
 
-/*
- * The MIT License (MIT)
- *
- * Copyright (c) 2018-2020 Spomky-Labs
- *
- * This software may be modified and distributed under the terms
- * of the MIT license.  See the LICENSE file for details.
- */
-
 namespace CBOR;
 
 use function array_key_exists;
@@ -33,12 +24,9 @@ final class MapObject extends AbstractCBORObject implements Countable, IteratorA
     /**
      * @var MapItem[]
      */
-    private $data;
+    private array $data;
 
-    /**
-     * @var string|null
-     */
-    private $length;
+    private ?string $length;
 
     /**
      * @param MapItem[] $data
@@ -46,12 +34,6 @@ final class MapObject extends AbstractCBORObject implements Countable, IteratorA
     public function __construct(array $data = [])
     {
         [$additionalInformation, $length] = LengthCalculator::getLengthOfArray($data);
-        array_map(static function ($item): void {
-            if (! $item instanceof MapItem) {
-                throw new InvalidArgumentException('The list must contain only MapItem objects.');
-            }
-        }, $data);
-
         parent::__construct(self::MAJOR_TYPE, $additionalInformation);
         $this->data = $data;
         $this->length = $length;
@@ -60,16 +42,10 @@ final class MapObject extends AbstractCBORObject implements Countable, IteratorA
     public function __toString(): string
     {
         $result = parent::__toString();
-        if ($this->length !== null) {
-            $result .= $this->length;
-        }
+        $result .= $this->length ?? '';
         foreach ($this->data as $object) {
-            $result .= $object->getKey()
-                ->__toString()
-            ;
-            $result .= $object->getValue()
-                ->__toString()
-            ;
+            $result .= (string) $object->getKey();
+            $result .= (string) $object->getValue();
         }
 
         return $result;
@@ -94,18 +70,12 @@ final class MapObject extends AbstractCBORObject implements Countable, IteratorA
         return $this;
     }
 
-    /**
-     * @param int|string $key
-     */
-    public function has($key): bool
+    public function has(int|string $key): bool
     {
         return array_key_exists($key, $this->data);
     }
 
-    /**
-     * @param int|string $index
-     */
-    public function remove($index): self
+    public function remove(int|string $index): self
     {
         if (! $this->has($index)) {
             return $this;
@@ -117,10 +87,7 @@ final class MapObject extends AbstractCBORObject implements Countable, IteratorA
         return $this;
     }
 
-    /**
-     * @param int|string $index
-     */
-    public function get($index): CBORObject
+    public function get(int|string $index): CBORObject
     {
         if (! $this->has($index)) {
             throw new InvalidArgumentException('Index not found.');
@@ -167,22 +134,6 @@ final class MapObject extends AbstractCBORObject implements Countable, IteratorA
             }
             $valueObject = $item->getValue();
             $carry[$key->normalize()] = $valueObject instanceof Normalizable ? $valueObject->normalize() : $valueObject;
-
-            return $carry;
-        }, []);
-    }
-
-    /**
-     * @deprecated The method will be removed on v3.0. Please rely on the CBOR\Normalizable interface
-     *
-     * @return array<int|string, mixed>
-     */
-    public function getNormalizedData(bool $ignoreTags = false): array
-    {
-        return array_reduce($this->data, static function (array $carry, MapItem $item) use ($ignoreTags): array {
-            $key = $item->getKey();
-            $valueObject = $item->getValue();
-            $carry[$key->getNormalizedData($ignoreTags)] = $valueObject->getNormalizedData($ignoreTags);
 
             return $carry;
         }, []);

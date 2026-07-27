@@ -2,193 +2,71 @@
 
 declare(strict_types=1);
 
-/*
- * The MIT License (MIT)
- *
- * Copyright (c) 2014-2021 Spomky-Labs
- *
- * This software may be modified and distributed under the terms
- * of the MIT license.  See the LICENSE file for details.
- */
-
 namespace Webauthn;
 
-use Assert\Assertion;
-use Base64Url\Base64Url;
-use function count;
-use function Safe\json_decode;
-use Webauthn\AuthenticationExtensions\AuthenticationExtensionsClientInputs;
+use function in_array;
+use Webauthn\AuthenticationExtensions\AuthenticationExtension;
+use Webauthn\AuthenticationExtensions\AuthenticationExtensions;
+use Webauthn\Exception\InvalidDataException;
 
-class PublicKeyCredentialRequestOptions extends PublicKeyCredentialOptions
+final class PublicKeyCredentialRequestOptions extends PublicKeyCredentialOptions
 {
+    public const USER_VERIFICATION_REQUIREMENT_DEFAULT = null;
+
     public const USER_VERIFICATION_REQUIREMENT_REQUIRED = 'required';
+
     public const USER_VERIFICATION_REQUIREMENT_PREFERRED = 'preferred';
+
     public const USER_VERIFICATION_REQUIREMENT_DISCOURAGED = 'discouraged';
 
-    /**
-     * @var string|null
-     */
-    private $rpId;
-
-    /**
-     * @var PublicKeyCredentialDescriptor[]
-     */
-    private $allowCredentials = [];
-
-    /**
-     * @var string|null
-     */
-    private $userVerification;
+    public const USER_VERIFICATION_REQUIREMENTS = [
+        self::USER_VERIFICATION_REQUIREMENT_DEFAULT,
+        self::USER_VERIFICATION_REQUIREMENT_REQUIRED,
+        self::USER_VERIFICATION_REQUIREMENT_PREFERRED,
+        self::USER_VERIFICATION_REQUIREMENT_DISCOURAGED,
+    ];
 
     /**
      * @param PublicKeyCredentialDescriptor[] $allowCredentials
+     * @param null|AuthenticationExtensions|array<array-key, AuthenticationExtension> $extensions
+     * @param string[] $hints
      */
-    public function __construct(string $challenge, ?int $timeout = null, ?string $rpId = null, array $allowCredentials = [], ?string $userVerification = null, ?AuthenticationExtensionsClientInputs $extensions = null)
-    {
-        if (0 !== count($allowCredentials)) {
-            @trigger_error('The argument "allowCredentials" is deprecated since version 3.3 and will be removed in 4.0. Please use the method "addAllowedCredentials" or "addAllowedCredential".', E_USER_DEPRECATED);
-        }
-        if (null !== $rpId) {
-            @trigger_error('The argument "rpId" is deprecated since version 3.3 and will be removed in 4.0. Please use the method "setRpId".', E_USER_DEPRECATED);
-        }
-        if (null !== $userVerification) {
-            @trigger_error('The argument "userVerification" is deprecated since version 3.3 and will be removed in 4.0. Please use the method "setUserVerification".', E_USER_DEPRECATED);
-        }
-        parent::__construct($challenge, $timeout, $extensions);
-        $this
-            ->setRpId($rpId)
-            ->allowCredentials($allowCredentials)
-            ->setUserVerification($userVerification)
-        ;
-    }
-
-    public static function create(string $challenge): self
-    {
-        return new self($challenge);
-    }
-
-    public function setRpId(?string $rpId): self
-    {
-        $this->rpId = $rpId;
-
-        return $this;
-    }
-
-    public function allowCredential(PublicKeyCredentialDescriptor $allowCredential): self
-    {
-        $this->allowCredentials[] = $allowCredential;
-
-        return $this;
+    public function __construct(
+        string $challenge,
+        public null|string $rpId = null,
+        public array $allowCredentials = [],
+        public null|string $userVerification = null,
+        null|int $timeout = null,
+        null|array|AuthenticationExtensions $extensions = null,
+        array $hints = [],
+    ) {
+        in_array($userVerification, self::USER_VERIFICATION_REQUIREMENTS, true) || throw InvalidDataException::create(
+            $userVerification,
+            'Invalid user verification requirement'
+        );
+        parent::__construct(
+            $challenge,
+            $timeout,
+            $extensions,
+            $hints
+        );
     }
 
     /**
      * @param PublicKeyCredentialDescriptor[] $allowCredentials
+     * @param positive-int $timeout
+     * @param null|AuthenticationExtensions|array<array-key, AuthenticationExtension> $extensions
+     * @param string[] $hints
      */
-    public function allowCredentials(array $allowCredentials): self
-    {
-        foreach ($allowCredentials as $allowCredential) {
-            $this->allowCredential($allowCredential);
-        }
-
-        return $this;
-    }
-
-    public function setUserVerification(?string $userVerification): self
-    {
-        if (null === $userVerification) {
-            $this->rpId = null;
-
-            return $this;
-        }
-        Assertion::inArray($userVerification, [
-            self::USER_VERIFICATION_REQUIREMENT_REQUIRED,
-            self::USER_VERIFICATION_REQUIREMENT_PREFERRED,
-            self::USER_VERIFICATION_REQUIREMENT_DISCOURAGED,
-        ], 'Invalid user verification requirement');
-        $this->userVerification = $userVerification;
-
-        return $this;
-    }
-
-    public function getRpId(): ?string
-    {
-        return $this->rpId;
-    }
-
-    /**
-     * @return PublicKeyCredentialDescriptor[]
-     */
-    public function getAllowCredentials(): array
-    {
-        return $this->allowCredentials;
-    }
-
-    public function getUserVerification(): ?string
-    {
-        return $this->userVerification;
-    }
-
-    public static function createFromString(string $data): PublicKeyCredentialOptions
-    {
-        $data = json_decode($data, true);
-        Assertion::isArray($data, 'Invalid data');
-
-        return self::createFromArray($data);
-    }
-
-    /**
-     * @param mixed[] $json
-     */
-    public static function createFromArray(array $json): PublicKeyCredentialOptions
-    {
-        Assertion::keyExists($json, 'challenge', 'Invalid input. "challenge" is missing.');
-
-        $allowCredentials = [];
-        $allowCredentialList = $json['allowCredentials'] ?? [];
-        foreach ($allowCredentialList as $allowCredential) {
-            $allowCredentials[] = PublicKeyCredentialDescriptor::createFromArray($allowCredential);
-        }
-
-        return self::create(Base64Url::decode($json['challenge']))
-            ->setRpId($json['rpId'] ?? null)
-            ->allowCredentials($allowCredentials)
-            ->setUserVerification($json['userVerification'] ?? null)
-            ->setTimeout($json['timeout'] ?? null)
-            ->setExtensions(isset($json['extensions']) ? AuthenticationExtensionsClientInputs::createFromArray($json['extensions']) : new AuthenticationExtensionsClientInputs())
-        ;
-    }
-
-    /**
-     * @return mixed[]
-     */
-    public function jsonSerialize(): array
-    {
-        $json = [
-            'challenge' => Base64Url::encode($this->challenge),
-        ];
-
-        if (null !== $this->rpId) {
-            $json['rpId'] = $this->rpId;
-        }
-
-        if (null !== $this->userVerification) {
-            $json['userVerification'] = $this->userVerification;
-        }
-
-        if (0 !== count($this->allowCredentials)) {
-            $json['allowCredentials'] = array_map(static function (PublicKeyCredentialDescriptor $object): array {
-                return $object->jsonSerialize();
-            }, $this->allowCredentials);
-        }
-
-        if (0 !== $this->extensions->count()) {
-            $json['extensions'] = $this->extensions->jsonSerialize();
-        }
-
-        if (null !== $this->timeout) {
-            $json['timeout'] = $this->timeout;
-        }
-
-        return $json;
+    public static function create(
+        string $challenge,
+        null|string $rpId = null,
+        array $allowCredentials = [],
+        null|string $userVerification = null,
+        null|int $timeout = null,
+        null|array|AuthenticationExtensions $extensions = null,
+        array $hints = [],
+    ): self {
+        return new self($challenge, $rpId, $allowCredentials, $userVerification, $timeout, $extensions, $hints);
     }
 }

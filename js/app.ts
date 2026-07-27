@@ -71,7 +71,13 @@ class WebauthnApp extends EgwApp
 	 */
 	arrayToBase64String(a)
 	{
-		return btoa(String.fromCharCode(...a));
+		// webauthn-lib 5.x decodes several response fields (eg. clientDataJSON, id) with a strict
+		// base64url decoder that rejects standard base64's '+'/'/' and '=' padding - browser's
+		// btoa() alone produces exactly that, so convert to unpadded base64url here.
+		return btoa(String.fromCharCode(...a))
+			.replace(/\+/g, '-')
+			.replace(/\//g, '_')
+			.replace(/=+$/, '');
 	}
 
 	/**
@@ -122,7 +128,7 @@ class WebauthnApp extends EgwApp
 			this.et2.getArrayMgr('content').getEntry('registrationOptions'));
 
 		publicKey.challenge = Uint8Array.from(window.atob(this.base64url2base64(publicKey.challenge)), (c) => c.charCodeAt(0));
-		publicKey.user.id = Uint8Array.from(window.atob(publicKey.user.id), function(c){ return c.charCodeAt(0); });
+		publicKey.user.id = Uint8Array.from(window.atob(this.base64url2base64(publicKey.user.id)), function(c){ return c.charCodeAt(0); });
 		if (publicKey.excludeCredentials)
 		{
 			publicKey.excludeCredentials = publicKey.excludeCredentials.map((data) => {

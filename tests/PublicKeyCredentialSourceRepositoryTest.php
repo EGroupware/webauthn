@@ -14,16 +14,17 @@ require_once __DIR__.'/../vendor/autoload.php';
 
 use EGroupware\Api;
 use EGroupware\Api\LoggedInTest;
-use Ramsey\Uuid\Uuid;
-use Webauthn\PublicKeyCredentialSource;
+use Symfony\Component\Uid\Uuid;
+use Webauthn\CredentialRecord;
 use Webauthn\TrustPath\EmptyTrustPath;
 
 /**
- * PublicKeyCredentialSourceRepository stores each Webauthn\PublicKeyCredentialSource as JSON
- * (column pubkey_json, see setup/tables_current.inc.php) via PublicKeyCredentialSource::
- * jsonSerialize()/createFromArray(). That JSON shape is exactly what tends to change in a
- * webauthn-lib major version, so these tests build a synthetic (non-cryptographic) source and
- * round-trip it through the real repository/DB, independent of any actual authenticator.
+ * PublicKeyCredentialSourceRepository stores each Webauthn\CredentialRecord as JSON (column
+ * pubkey_json, see setup/tables_current.inc.php) via the shared WebauthnSerializerFactory-based
+ * serializer (CredentialRecord/PublicKeyCredentialSource lost jsonSerialize()/createFromArray()
+ * in webauthn-lib 5.x). That JSON shape is exactly what tends to change in a webauthn-lib major
+ * version, so these tests build a synthetic (non-cryptographic) record and round-trip it through
+ * the real repository/DB, independent of any actual authenticator.
  *
  * Pass criteria: after save(), the credential is found by findOneByCredentialId() and
  * findAllForUserEntity() with the same field values; after delete() is called twice (soft
@@ -50,11 +51,11 @@ class PublicKeyCredentialSourceRepositoryTest extends LoggedInTest
 	}
 
 	/**
-	 * Build a synthetic, non-cryptographically-meaningful credential source for the given
+	 * Build a synthetic, non-cryptographically-meaningful credential record for the given
 	 * (or current) account. Only the shape/serialization matters for this test, not whether
 	 * the "public key" bytes are an actually valid COSE key.
 	 */
-	protected function makeSource(?int $account_id=null) : PublicKeyCredentialSource
+	protected function makeSource(?int $account_id=null) : CredentialRecord
 	{
 		$account_id = $account_id ?? $GLOBALS['egw_info']['user']['account_id'];
 		$install_id = $GLOBALS['egw_info']['server']['install_id'];
@@ -62,7 +63,7 @@ class PublicKeyCredentialSourceRepositoryTest extends LoggedInTest
 		$credential_id = random_bytes(16);
 		$this->credential_ids[] = $credential_id;
 
-		return new PublicKeyCredentialSource(
+		return CredentialRecord::create(
 			$credential_id,
 			'public-key',
 			[],
@@ -81,13 +82,13 @@ class PublicKeyCredentialSourceRepositoryTest extends LoggedInTest
 		$repo = new PublicKeyCredentialSourceRepository();
 
 		$repo->saveCredentialSource($source);
-		$found = $repo->findOneByCredentialId($source->getPublicKeyCredentialId());
+		$found = $repo->findOneByCredentialId($source->publicKeyCredentialId);
 
 		$this->assertNotNull($found, 'Saved credential source not found by its credential id');
-		$this->assertSame($source->getPublicKeyCredentialId(), $found->getPublicKeyCredentialId());
-		$this->assertSame($source->getUserHandle(), $found->getUserHandle());
-		$this->assertSame($source->getCredentialPublicKey(), $found->getCredentialPublicKey());
-		$this->assertSame($source->getCounter(), $found->getCounter());
+		$this->assertSame($source->publicKeyCredentialId, $found->publicKeyCredentialId);
+		$this->assertSame($source->userHandle, $found->userHandle);
+		$this->assertSame($source->credentialPublicKey, $found->credentialPublicKey);
+		$this->assertSame($source->counter, $found->counter);
 	}
 
 	public function testFindAllForUserEntityReturnsOwnCredentialsOnly()
@@ -99,8 +100,8 @@ class PublicKeyCredentialSourceRepositoryTest extends LoggedInTest
 		$userEntity = PublicKeyCredentialUserEntity::current();
 		$all = $repo->findAllForUserEntity($userEntity);
 
-		$ids = array_map(static function(PublicKeyCredentialSource $s) { return $s->getPublicKeyCredentialId(); }, $all);
-		$this->assertContains($source->getPublicKeyCredentialId(), $ids,
+		$ids = array_map(static function(CredentialRecord $s) { return $s->publicKeyCredentialId; }, $all);
+		$this->assertContains($source->publicKeyCredentialId, $ids,
 			'findAllForUserEntity() should include a just-saved credential of the current user');
 	}
 
@@ -117,13 +118,13 @@ class PublicKeyCredentialSourceRepositoryTest extends LoggedInTest
 		$repo->saveCredentialSource($source);
 
 		// sanity check it is there before deleting
-		$this->assertNotNull($repo->findOneByCredentialId($source->getPublicKeyCredentialId()));
+		$this->assertNotNull($repo->findOneByCredentialId($source->publicKeyCredentialId));
 
 		$pubkey_id = $this->pubkeyIdFor($source);
 
 		// first delete(): soft delete, row still physically exists
 		$repo->delete(['pubkey_id' => $pubkey_id]);
-		$this->assertNull($repo->findOneByCredentialId($source->getPublicKeyCredentialId()),
+		$this->assertNull($repo->findOneByCredentialId($source->publicKeyCredentialId),
 			'Soft-deleted credential must no longer be returned by findOneByCredentialId()');
 		$this->assertNotNull($this->rawRow($source), 'Soft-deleted row should still physically exist after first delete()');
 
@@ -136,18 +137,18 @@ class PublicKeyCredentialSourceRepositoryTest extends LoggedInTest
 	 * Look up the internal pubkey_id (autoinc PK) for a saved source, needed to call delete()
 	 * the same way Register::action() does (by pubkey_id, not credential id).
 	 */
-	protected function pubkeyIdFor(PublicKeyCredentialSource $source) : int
+	protected function pubkeyIdFor(CredentialRecord $source) : int
 	{
 		$row = $this->rawRow($source);
 		$this->assertNotNull($row, 'Expected row to exist to determine its pubkey_id');
 		return (int)$row['pubkey_id'];
 	}
 
-	protected function rawRow(PublicKeyCredentialSource $source) : ?array
+	protected function rawRow(CredentialRecord $source) : ?array
 	{
 		$db = $GLOBALS['egw']->db;
 		foreach($db->select(PublicKeyCredentialSourceRepository::TABLE, '*',
-			['pubkey_credential_id' => base64_encode($source->getPublicKeyCredentialId())],
+			['pubkey_credential_id' => base64_encode($source->publicKeyCredentialId)],
 			__LINE__, __FILE__, false, '', PublicKeyCredentialSourceRepository::APP) as $row)
 		{
 			return $row;

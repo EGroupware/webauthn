@@ -16,11 +16,18 @@ namespace EGroupware\WebAuthn;
 // explicitly include autoloader for our own vendor directory
 include __DIR__.'/../vendor/autoload.php';
 
+use Cose\Algorithm\Manager as CoseAlgorithmManager;
+use Cose\Algorithm\Signature\ECDSA\ES256;
+use Cose\Algorithm\Signature\RSA\RS256;
 use EGroupware\Api;
+use Webauthn\AuthenticatorAttestationResponse;
+use Webauthn\AuthenticatorAttestationResponseValidator;
+use Webauthn\AuthenticatorSelectionCriteria;
+use Webauthn\CeremonyStep\CeremonyStepManagerFactory;
+use Webauthn\CredentialRecord;
+use Webauthn\PublicKeyCredential;
 use Webauthn\PublicKeyCredentialCreationOptions;
-use Webauthn\PublicKeyCredentialSource;
-use Webauthn\Server;
-use Zend\Diactoros\ServerRequestFactory;
+use Webauthn\PublicKeyCredentialParameters;
 
 /**
  * Register and display tokens of current user under Preferences >> Password & Security
@@ -85,27 +92,34 @@ class Register
 		// RP Entity
 		$rpEntity = PublicKeyCredentialRpEntity::own();
 
-		// New Server class introduced in v2.1
-		$server = new Server(
-			$rpEntity,
-			$publicKeyCredentialSourceRepository,
-			null
-		);
-
 		// User Entity
 		$userEntity = PublicKeyCredentialUserEntity::current();
 
 		$registeredPublicKeyCredentialSources = $publicKeyCredentialSourceRepository->findAllForUserEntity($userEntity);
-		$registeredPublicKeyCredentialDescriptors = array_map(static function(PublicKeyCredentialSource $item) {
+		$registeredPublicKeyCredentialDescriptors = array_map(static function(CredentialRecord $item) {
 			return $item->getPublicKeyCredentialDescriptor();
 		}, $registeredPublicKeyCredentialSources);
-		$publicKeyCredentialCreationOptions = $server->generatePublicKeyCredentialCreationOptions(
+
+		// signature algorithms we accept to sign the new credential (webauthn-lib no longer
+		// derives this automatically - mirrors CeremonyStepManagerFactory's own default pair)
+		$algorithmManager = CoseAlgorithmManager::create()->add(ES256::create(), RS256::create());
+		$pubKeyCredParams = [];
+		foreach($algorithmManager->all() as $algorithm)
+		{
+			$pubKeyCredParams[] = PublicKeyCredentialParameters::createPk($algorithm::identifier());
+		}
+
+		$publicKeyCredentialCreationOptions = PublicKeyCredentialCreationOptions::create(
+			$rpEntity,
 			$userEntity,
+			random_bytes(32),
+			$pubKeyCredParams,
+			AuthenticatorSelectionCriteria::create(),
 			PublicKeyCredentialCreationOptions::ATTESTATION_CONVEYANCE_PREFERENCE_NONE,
 			$registeredPublicKeyCredentialDescriptors
 		);
 
-		return json_encode($publicKeyCredentialCreationOptions, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+		return PublicKeyCredentialSourceRepository::serializer()->serialize($publicKeyCredentialCreationOptions, 'json');
 	}
 
 	/**
@@ -116,42 +130,39 @@ class Register
 	 */
 	protected static function registration($response, $options)
 	{
-		$publicKeyCredentialCreationOptions = PublicKeyCredentialCreationOptions::createFromString($options);
+		$serializer = PublicKeyCredentialSourceRepository::serializer();
+		$publicKeyCredentialCreationOptions = $serializer->deserialize($options, PublicKeyCredentialCreationOptions::class, 'json');
 		//error_log("publicKeyCredentialCreationOptions from session=".json_encode($publicKeyCredentialCreationOptions));
 
-		// Retrieve de data sent by the device
+		// Retrieve the data sent by the device
 		$data = base64_decode($response);
 		//error_log("data from request=$data");
 
-		// Credential Repository
-		$publicKeyCredentialSourceRepository = new PublicKeyCredentialSourceRepository();
-
-		// RP Entity
-		$rpEntity = PublicKeyCredentialRpEntity::own();
-
-		// New Server class introduced in v2.1
-		$server = new Server(
-			$rpEntity,
-			$publicKeyCredentialSourceRepository,
-			null
-		);
-
 		try {
-			// We init the PSR7 Request object
-			$psr7Request = ServerRequestFactory::fromGlobals();
+			$publicKeyCredential = $serializer->deserialize($data, PublicKeyCredential::class, 'json');
+			if (!$publicKeyCredential->response instanceof AuthenticatorAttestationResponse)
+			{
+				throw new \UnexpectedValueException('Not an attestation response');
+			}
+
+			// current request scheme+host, used both as fallback rpId and for strict origin checking
+			$scheme = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http';
+			$host = preg_replace('/:.*$/', '', $_SERVER['HTTP_HOST']);
+
+			$ceremonyStepManagerFactory = new CeremonyStepManagerFactory();
+			$ceremonyStepManagerFactory->setAllowedOrigins([$scheme.'://'.$_SERVER['HTTP_HOST']]);
+
+			$validator = AuthenticatorAttestationResponseValidator::create($ceremonyStepManagerFactory->creationCeremony());
 
 			// Check the response against the request
-			$publicKeyCredentialSource = $server->loadAndCheckAttestationResponse($data, $publicKeyCredentialCreationOptions, $psr7Request);
+			$credentialRecord = $validator->check($publicKeyCredential->response, $publicKeyCredentialCreationOptions, $host);
 
 			// Everything is OK here.
 
-			// You can get the Public Key Credential Source. This object should be persisted using the Public Key Credential Source repository
-			$publicKeyCredentialSourceRepository->saveCredentialSource($publicKeyCredentialSource);
+			// Persist the credential record using the Public Key Credential Source repository
+			$publicKeyCredentialSourceRepository = new PublicKeyCredentialSourceRepository();
+			$publicKeyCredentialSourceRepository->saveCredentialSource($credentialRecord);
 			Api\Framework::message(lang('WebAuthn / U2F token registered'));
-
-			// You can also get the PublicKeyCredentialDescriptor --> empty for YubiKeys :(
-			//$publicKeyCredentialDescriptor = $publicKeyCredentialSource->getPublicKeyCredentialDescriptor();
-			//error_log('$publicKeyCredential->getPublicKeyCredentialDescriptor()='.json_encode($publicKeyCredentialDescriptor));
 		}
 		catch (\Throwable $e) {
 			_egw_log_exception($e);

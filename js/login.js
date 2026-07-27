@@ -76,7 +76,13 @@ ready(() => {
 	});
 
 	function arrayToBase64String(a) {
-		return btoa(String.fromCharCode(...a));
+		// webauthn-lib 5.x decodes several response fields (eg. clientDataJSON, id) with a strict
+		// base64url decoder that rejects standard base64's '+'/'/' and '=' padding - browser's
+		// btoa() alone produces exactly that, so convert to unpadded base64url here.
+		return btoa(String.fromCharCode(...a))
+			.replace(/\+/g, '-')
+			.replace(/\//g, '_')
+			.replace(/=+$/, '');
 	}
 
 	function base64url2base64(input) {

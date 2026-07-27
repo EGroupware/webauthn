@@ -2,42 +2,55 @@
 
 declare(strict_types=1);
 
-/*
- * The MIT License (MIT)
- *
- * Copyright (c) 2014-2021 Spomky-Labs
- *
- * This software may be modified and distributed under the terms
- * of the MIT license.  See the LICENSE file for details.
- */
-
 namespace Webauthn\AttestationStatement;
 
-use Assert\Assertion;
+use function array_key_exists;
 use CBOR\Decoder;
-use CBOR\OtherObject\OtherObjectManager;
-use CBOR\Tag\TagObjectManager;
+use CBOR\Normalizable;
 use Cose\Key\Ec2Key;
 use Cose\Key\Key;
 use Cose\Key\RsaKey;
 use function count;
-use function Safe\openssl_pkey_get_public;
-use function Safe\sprintf;
+use Psr\EventDispatcher\EventDispatcherInterface;
+use SpomkyLabs\Pki\ASN1\Type\Constructed\Sequence;
+use SpomkyLabs\Pki\ASN1\Type\Primitive\OctetString;
+use SpomkyLabs\Pki\ASN1\Type\Tagged\ExplicitTagging;
+use SpomkyLabs\Pki\CryptoEncoding\PEM;
+use SpomkyLabs\Pki\X509\Certificate\Certificate;
+use SpomkyLabs\Pki\X509\Certificate\Extension\UnknownExtension;
 use Webauthn\AuthenticatorData;
-use Webauthn\CertificateToolbox;
+use Webauthn\Event\AttestationStatementLoaded;
+use Webauthn\Event\CanDispatchEvents;
+use Webauthn\Event\NullEventDispatcher;
+use Webauthn\Exception\AttestationStatementLoadingException;
+use Webauthn\Exception\AttestationStatementVerificationException;
+use Webauthn\Exception\InvalidAttestationStatementException;
+use Webauthn\MetadataService\CertificateChain\CertificateToolbox;
 use Webauthn\StringStream;
 use Webauthn\TrustPath\CertificateTrustPath;
 
-final class AppleAttestationStatementSupport implements AttestationStatementSupport
+final class AppleAttestationStatementSupport implements AttestationStatementSupport, CanDispatchEvents
 {
-    /**
-     * @var Decoder
-     */
-    private $decoder;
+    private const OID_APPLE = '1.2.840.113635.100.8.2';
+
+    private readonly Decoder $decoder;
+
+    private EventDispatcherInterface $dispatcher;
 
     public function __construct()
     {
-        $this->decoder = new Decoder(new TagObjectManager(), new OtherObjectManager());
+        $this->decoder = Decoder::create();
+        $this->dispatcher = new NullEventDispatcher();
+    }
+
+    public function setEventDispatcher(EventDispatcherInterface $eventDispatcher): void
+    {
+        $this->dispatcher = $eventDispatcher;
+    }
+
+    public static function create(): self
+    {
+        return new self();
     }
 
     public function name(): string
@@ -46,29 +59,54 @@ final class AppleAttestationStatementSupport implements AttestationStatementSupp
     }
 
     /**
-     * @param mixed[] $attestation
+     * @param array<string, mixed> $attestation
      */
     public function load(array $attestation): AttestationStatement
     {
-        Assertion::keyExists($attestation, 'attStmt', 'Invalid attestation object');
-        foreach (['x5c'] as $key) {
-            Assertion::keyExists($attestation['attStmt'], $key, sprintf('The attestation statement value "%s" is missing.', $key));
-        }
-        $certificates = $attestation['attStmt']['x5c'];
-        Assertion::isArray($certificates, 'The attestation statement value "x5c" must be a list with at least one certificate.');
-        Assertion::greaterThan(count($certificates), 0, 'The attestation statement value "x5c" must be a list with at least one certificate.');
-        Assertion::allString($certificates, 'The attestation statement value "x5c" must be a list with at least one certificate.');
+        array_key_exists('attStmt', $attestation) || throw AttestationStatementLoadingException::create(
+            $attestation,
+            'Invalid attestation object'
+        );
+        /** @var array<string, mixed> $attStmt */
+        $attStmt = $attestation['attStmt'];
+        array_key_exists('x5c', $attStmt) || throw AttestationStatementLoadingException::create(
+            $attestation,
+            'The attestation statement value "x5c" is missing.'
+        );
+        /** @var array<string> $certificates */
+        $certificates = $attStmt['x5c'];
+        (is_countable($certificates) ? count(
+            $certificates
+        ) : 0) > 0 || throw AttestationStatementLoadingException::create(
+            $attestation,
+            'The attestation statement value "x5c" must be a list with at least one certificate.'
+        );
         $certificates = CertificateToolbox::convertAllDERToPEM($certificates);
 
-        return AttestationStatement::createAnonymizationCA($attestation['fmt'], $attestation['attStmt'], new CertificateTrustPath($certificates));
+        /** @var string $fmt */
+        $fmt = $attestation['fmt'];
+        $attestationStatement = AttestationStatement::createAnonymizationCA(
+            $fmt,
+            $attStmt,
+            CertificateTrustPath::create($certificates)
+        );
+        $this->dispatcher->dispatch(AttestationStatementLoaded::create($attestationStatement));
+
+        return $attestationStatement;
     }
 
-    public function isValid(string $clientDataJSONHash, AttestationStatement $attestationStatement, AuthenticatorData $authenticatorData): bool
-    {
-        $trustPath = $attestationStatement->getTrustPath();
-        Assertion::isInstanceOf($trustPath, CertificateTrustPath::class, 'Invalid trust path');
+    public function isValid(
+        string $clientDataJSONHash,
+        AttestationStatement $attestationStatement,
+        AuthenticatorData $authenticatorData
+    ): bool {
+        $trustPath = $attestationStatement->trustPath;
+        $trustPath instanceof CertificateTrustPath || throw InvalidAttestationStatementException::create(
+            $attestationStatement,
+            'Invalid trust path'
+        );
 
-        $certificates = $trustPath->getCertificates();
+        $certificates = $trustPath->certificates;
 
         //Decode leaf attestation certificate
         $leaf = $certificates[0];
@@ -78,42 +116,83 @@ final class AppleAttestationStatementSupport implements AttestationStatementSupp
         return true;
     }
 
-    private function checkCertificateAndGetPublicKey(string $certificate, string $clientDataHash, AuthenticatorData $authenticatorData): void
-    {
-        $resource = openssl_pkey_get_public($certificate);
-        $details = openssl_pkey_get_details($resource);
-        Assertion::isArray($details, 'Unable to read the certificate');
-
+    /**
+     * @see https://www.w3.org/TR/webauthn-3/#sctn-apple-anonymous-attestation
+     */
+    private function checkCertificateAndGetPublicKey(
+        string $certificate,
+        string $clientDataHash,
+        AuthenticatorData $authenticatorData
+    ): void {
         //Check that authData publicKey matches the public key in the attestation certificate
-        $attestedCredentialData = $authenticatorData->getAttestedCredentialData();
-        Assertion::notNull($attestedCredentialData, 'No attested credential data found');
-        $publicKeyData = $attestedCredentialData->getCredentialPublicKey();
-        Assertion::notNull($publicKeyData, 'No attested public key found');
+        $attestedCredentialData = $authenticatorData->attestedCredentialData;
+        $attestedCredentialData !== null || throw AttestationStatementVerificationException::create(
+            'No attested credential data found'
+        );
+        $publicKeyData = $attestedCredentialData->credentialPublicKey;
+        $publicKeyData !== null || throw AttestationStatementVerificationException::create(
+            'No attested public key found'
+        );
         $publicDataStream = new StringStream($publicKeyData);
-        $coseKey = $this->decoder->decode($publicDataStream)->getNormalizedData(false);
-        Assertion::true($publicDataStream->isEOF(), 'Invalid public key data. Presence of extra bytes.');
+        $coseKey = $this->decoder->decode($publicDataStream);
+        $coseKey instanceof Normalizable || throw AttestationStatementVerificationException::create(
+            'Invalid attested public key found'
+        );
+        $publicDataStream->isEOF() || throw AttestationStatementVerificationException::create(
+            'Invalid public key data. Presence of extra bytes.'
+        );
         $publicDataStream->close();
-        $publicKey = Key::createFromData($coseKey);
+        /** @var array<int, mixed> $coseKeyData */
+        $coseKeyData = $coseKey->normalize();
+        $publicKey = Key::createFromData($coseKeyData);
 
-        Assertion::true(($publicKey instanceof Ec2Key) || ($publicKey instanceof RsaKey), 'Unsupported key type');
-
-        //We check the attested key corresponds to the key in the certificate
-        Assertion::eq($publicKey->asPEM(), $details['key'], 'Invalid key');
+        ($publicKey instanceof Ec2Key) || ($publicKey instanceof RsaKey) || throw AttestationStatementVerificationException::create(
+            'Unsupported key type'
+        );
 
         /*---------------------------*/
-        $certDetails = openssl_x509_parse($certificate);
+        $cert = Certificate::fromPEM(PEM::fromString($certificate));
 
-        //Find Apple Extension with OID “1.2.840.113635.100.8.2” in certificate extensions
-        Assertion::isArray($certDetails, 'The certificate is not valid');
-        Assertion::keyExists($certDetails, 'extensions', 'The certificate has no extension');
-        Assertion::isArray($certDetails['extensions'], 'The certificate has no extension');
-        Assertion::keyExists($certDetails['extensions'], '1.2.840.113635.100.8.2', 'The certificate extension "1.2.840.113635.100.8.2" is missing');
-        $extension = $certDetails['extensions']['1.2.840.113635.100.8.2'];
+        //We check the attested key corresponds to the key in the certificate
+        PEM::fromString($publicKey->asPEM())->string() === $cert->tbsCertificate()
+            ->subjectPublicKeyInfo()
+            ->toPEM()
+            ->string() || throw AttestationStatementVerificationException::create('Invalid key');
 
-        $nonceToHash = $authenticatorData->getAuthData().$clientDataHash;
-        $nonce = hash('sha256', $nonceToHash);
+        $extensions = $cert->tbsCertificate()
+            ->extensions();
 
-        //'3024a1220420' corresponds to the Sequence+Explicitly Tagged Object + Octet Object
-        Assertion::eq('3024a1220420'.$nonce, bin2hex($extension), 'The client data hash is not valid');
+        //Find Apple Extension with OID "1.2.840.113635.100.8.2" in certificate extensions
+        $extensions->has(self::OID_APPLE) || throw AttestationStatementVerificationException::create(
+            'The certificate extension "' . self::OID_APPLE . '" is missing'
+        );
+        /** @var UnknownExtension $appleExtension */
+        $appleExtension = $extensions->get(self::OID_APPLE);
+        $extensionSequence = Sequence::fromDER($appleExtension->extensionValue());
+        $extensionSequence->has(0) || throw AttestationStatementVerificationException::create(
+            'The certificate extension "' . self::OID_APPLE . '" is message'
+        );
+        $firstExtension = $extensionSequence->at(0);
+        $firstExtension->isTagged() || throw AttestationStatementVerificationException::create(
+            'The certificate extension "' . self::OID_APPLE . '" is invalid'
+        );
+        $taggedExtension = $firstExtension->asTagged()
+            ->asElement();
+        $taggedExtension instanceof ExplicitTagging || throw AttestationStatementVerificationException::create(
+            'The certificate extension "' . self::OID_APPLE . '" is invalid'
+        );
+        $explicitExtension = $taggedExtension->explicit()
+            ->asElement();
+        $explicitExtension instanceof OctetString || throw AttestationStatementVerificationException::create(
+            'The certificate extension "' . self::OID_APPLE . '" is invalid'
+        );
+        $extensionData = $explicitExtension->string();
+
+        $nonceToHash = $authenticatorData->authData . $clientDataHash;
+        $nonce = hash('sha256', $nonceToHash, true);
+
+        hash_equals($nonce, $extensionData) || throw AttestationStatementVerificationException::create(
+            'The client data hash is not valid'
+        );
     }
 }

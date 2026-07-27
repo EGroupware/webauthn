@@ -2,25 +2,18 @@
 
 declare(strict_types=1);
 
-/*
- * The MIT License (MIT)
- *
- * Copyright (c) 2014-2021 Spomky-Labs
- *
- * This software may be modified and distributed under the terms
- * of the MIT license.  See the LICENSE file for details.
- */
-
 namespace Webauthn;
 
-use Assert\Assertion;
+use function assert;
 use CBOR\Stream;
-use function Safe\fclose;
-use function Safe\fopen;
-use function Safe\fread;
-use function Safe\fwrite;
-use function Safe\rewind;
-use function Safe\sprintf;
+use function fclose;
+use function fopen;
+use function fread;
+use function fwrite;
+use function rewind;
+use function sprintf;
+use function strlen;
+use Webauthn\Exception\InvalidDataException;
 
 final class StringStream implements Stream
 {
@@ -29,20 +22,15 @@ final class StringStream implements Stream
      */
     private $data;
 
-    /**
-     * @var int
-     */
-    private $length;
+    private readonly int $length;
 
-    /**
-     * @var int
-     */
-    private $totalRead = 0;
+    private int $totalRead = 0;
 
     public function __construct(string $data)
     {
-        $this->length = mb_strlen($data, '8bit');
+        $this->length = strlen($data);
         $resource = fopen('php://memory', 'rb+');
+        assert($resource !== false, 'The resource could not be opened.');
         fwrite($resource, $data);
         rewind($resource);
         $this->data = $resource;
@@ -50,12 +38,17 @@ final class StringStream implements Stream
 
     public function read(int $length): string
     {
-        if (0 === $length) {
+        if ($length <= 0) {
             return '';
         }
         $read = fread($this->data, $length);
-        $bytesRead = mb_strlen($read, '8bit');
-        Assertion::length($read, $length, sprintf('Out of range. Expected: %d, read: %d.', $length, $bytesRead), null, '8bit');
+        assert($read !== false, 'The data could not be read.');
+        $bytesRead = strlen($read);
+        strlen($read) === $length || throw InvalidDataException::create(null, sprintf(
+            'Out of range. Expected: %d, read: %d.',
+            $length,
+            $bytesRead
+        ));
         $this->totalRead += $bytesRead;
 
         return $read;

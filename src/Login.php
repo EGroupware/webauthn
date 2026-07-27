@@ -16,11 +16,13 @@ namespace EGroupware\WebAuthn;
 // explicitly include autoloader for our own vendor directory
 include __DIR__.'/../vendor/autoload.php';
 
-use Webauthn\PublicKeyCredentialRequestOptions;
-use Webauthn\PublicKeyCredentialSource;
-use Webauthn\Server;
-use Zend\Diactoros\ServerRequestFactory;
 use EGroupware\Api;
+use Webauthn\AuthenticatorAssertionResponse;
+use Webauthn\AuthenticatorAssertionResponseValidator;
+use Webauthn\CeremonyStep\CeremonyStepManagerFactory;
+use Webauthn\CredentialRecord;
+use Webauthn\PublicKeyCredential;
+use Webauthn\PublicKeyCredentialRequestOptions;
 
 /**
  * Display tokens of current user under Preferences >> Password & Security
@@ -64,36 +66,30 @@ class Login
 			}
 
 			// Credential Repository
-			$publicKeyCredentialSourceRepository = new PublicKeyCredentialSourceRepository();
+			$repo = new PublicKeyCredentialSourceRepository();
 
 			// RP Entity
 			$rpEntity = PublicKeyCredentialRpEntity::own();
 
-			// New Server class introduced in v2.1
-			$server = new Server(
-				$rpEntity,
-				$publicKeyCredentialSourceRepository,
-				null
-			);
-
 			// User Entity
 			$userEntity = PublicKeyCredentialUserEntity::get($account_id);
 
-			$repo = new PublicKeyCredentialSourceRepository();
 			$registeredPublicKeyCredentialSources = $repo->findAllForUserEntity($userEntity);
 
 			if (count($registeredPublicKeyCredentialSources))
 			{
-				$registeredPublicKeyCredentialDescriptors = array_map(static function(PublicKeyCredentialSource $item) {
+				$registeredPublicKeyCredentialDescriptors = array_map(static function(CredentialRecord $item) {
 					return $item->getPublicKeyCredentialDescriptor();
 				}, $registeredPublicKeyCredentialSources);
 
 				// Public Key Credential Request Options
-				$publicKeyCredentialRequestOptions = $server->generatePublicKeyCredentialRequestOptions(
-					PublicKeyCredentialRequestOptions::USER_VERIFICATION_REQUIREMENT_PREFERRED,
-					$registeredPublicKeyCredentialDescriptors
+				$publicKeyCredentialRequestOptions = PublicKeyCredentialRequestOptions::create(
+					random_bytes(32),
+					$rpEntity->id,
+					$registeredPublicKeyCredentialDescriptors,
+					PublicKeyCredentialRequestOptions::USER_VERIFICATION_REQUIREMENT_PREFERRED
 				);
-				$encodedOptions = json_encode($publicKeyCredentialRequestOptions, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+				$encodedOptions = PublicKeyCredentialSourceRepository::serializer()->serialize($publicKeyCredentialRequestOptions, 'json');
 
 				// we need to create a session here, to be able to store the options
 				session_name(Api\Session::EGW_SESSION_NAME);
@@ -146,45 +142,57 @@ class Login
 			$data['errors'][self::APP] = 'credentials response missing, probably aborted by user';
 			return;
 		}
-		$publicKeyCredentialRequestOptions =  PublicKeyCredentialRequestOptions::createFromString($_SESSION['publicKeyCredentialRequestOptions']);
+		$serializer = PublicKeyCredentialSourceRepository::serializer();
+		$publicKeyCredentialRequestOptions = $serializer->deserialize($_SESSION['publicKeyCredentialRequestOptions'],
+			PublicKeyCredentialRequestOptions::class, 'json');
 		//error_log("PublicKeyCredentialRequestOptions from session=".json_encode($publicKeyCredentialRequestOptions));
-
-		// Credential Repository
-		$publicKeyCredentialSourceRepository = new PublicKeyCredentialSourceRepository();
-
-		// RP Entity
-		$rpEntity = PublicKeyCredentialRpEntity::own();
-
-		// New Server class introduced in v2.1
-		$server = new Server(
-			$rpEntity,
-			$publicKeyCredentialSourceRepository,
-			null
-		);
 
 		// User Entity
 		$userEntity = PublicKeyCredentialUserEntity::get($GLOBALS['egw']->session->account_id);
 
-		// Retrieve de data sent by the device
+		// Retrieve the data sent by the device
 		$response = base64_decode($_POST['credentialsResponse']);
 		//error_log("data from request=$response");
 
-
 		try {
-			// We init the PSR7 Request object
-			$psr7Request = ServerRequestFactory::fromGlobals();
-			$server->loadAndCheckAssertionResponse(
-				$response,
+			$publicKeyCredential = $serializer->deserialize($response, PublicKeyCredential::class, 'json');
+			if (!$publicKeyCredential->response instanceof AuthenticatorAssertionResponse)
+			{
+				throw new \UnexpectedValueException('Not an assertion response');
+			}
+
+			// credential record as stored/updated by a previous registration
+			$credentialRecord = $repo->findOneByCredentialId($publicKeyCredential->rawId);
+			if (!$credentialRecord)
+			{
+				throw new Api\Exception\NotFound('Unknown credential');
+			}
+
+			// current request scheme+host, used both as fallback rpId and for strict origin checking
+			$scheme = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http';
+			$host = preg_replace('/:.*$/', '', $_SERVER['HTTP_HOST']);
+
+			$ceremonyStepManagerFactory = new CeremonyStepManagerFactory();
+			$ceremonyStepManagerFactory->setAllowedOrigins([$scheme.'://'.$_SERVER['HTTP_HOST']]);
+
+			$validator = AuthenticatorAssertionResponseValidator::create($ceremonyStepManagerFactory->requestCeremony());
+
+			// check() mutates $credentialRecord's counter in place; must be persisted explicitly -
+			// unlike webauthn-lib v3's Server, v5's validator no longer holds/updates the repository itself
+			$validator->check(
+				$credentialRecord,
+				$publicKeyCredential->response,
 				$publicKeyCredentialRequestOptions,
-				$userEntity,
-				$psr7Request
+				$host,
+				$userEntity->id
 			);
+			$repo->saveCredentialSource($credentialRecord);
 
 			// report our now verified factor
 			$data['factors'][self::APP] = true;
 			unset($data['errors'][self::APP]);
 		}
-		catch (Throwable $throwable)
+		catch (\Throwable $throwable)
 		{
 			_egw_log_exception($throwable);
 			$data['errors'][self::APP] = $throwable->getMessage();

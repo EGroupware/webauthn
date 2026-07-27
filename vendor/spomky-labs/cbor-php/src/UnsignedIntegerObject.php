@@ -2,17 +2,9 @@
 
 declare(strict_types=1);
 
-/*
- * The MIT License (MIT)
- *
- * Copyright (c) 2018-2020 Spomky-Labs
- *
- * This software may be modified and distributed under the terms
- * of the MIT license.  See the LICENSE file for details.
- */
-
 namespace CBOR;
 
+use function assert;
 use Brick\Math\BigInteger;
 use InvalidArgumentException;
 use const STR_PAD_LEFT;
@@ -21,15 +13,11 @@ final class UnsignedIntegerObject extends AbstractCBORObject implements Normaliz
 {
     private const MAJOR_TYPE = self::MAJOR_TYPE_UNSIGNED_INTEGER;
 
-    /**
-     * @var string|null
-     */
-    private $data;
-
-    public function __construct(int $additionalInformation, ?string $data)
-    {
+    public function __construct(
+        int $additionalInformation,
+        private ?string $data
+    ) {
         parent::__construct(self::MAJOR_TYPE, $additionalInformation);
-        $this->data = $data;
     }
 
     public function __toString(): string
@@ -54,6 +42,7 @@ final class UnsignedIntegerObject extends AbstractCBORObject implements Normaliz
 
     public static function createFromHex(string $value): self
     {
+        assert($value !== '', 'Value must not be empty');
         $integer = BigInteger::fromBase($value, 16);
 
         return self::createBigInteger($integer);
@@ -71,26 +60,25 @@ final class UnsignedIntegerObject extends AbstractCBORObject implements Normaliz
         return self::MAJOR_TYPE;
     }
 
+    /**
+     * @return numeric-string
+     */
     public function getValue(): string
     {
         if ($this->data === null) {
             return (string) $this->additionalInformation;
         }
 
-        $integer = BigInteger::fromBase(bin2hex($this->data), 16);
+        $hex = bin2hex($this->data);
+        assert($hex !== '', 'Value must not be empty');
 
-        return $integer->toBase(10);
-    }
-
-    public function normalize(): string
-    {
-        return $this->getValue();
+        return BigInteger::fromBase($hex, 16)->toBase(10);
     }
 
     /**
-     * @deprecated The method will be removed on v3.0. Please rely on the CBOR\Normalizable interface
+     * @return numeric-string
      */
-    public function getNormalizedData(bool $ignoreTags = false): string
+    public function normalize(): string
     {
         return $this->getValue();
     }

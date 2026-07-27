@@ -2,38 +2,34 @@
 
 declare(strict_types=1);
 
-/*
- * The MIT License (MIT)
- *
- * Copyright (c) 2018-2020 Spomky-Labs
- *
- * This software may be modified and distributed under the terms
- * of the MIT license.  See the LICENSE file for details.
- */
-
 namespace CBOR\Tag;
 
 use function array_key_exists;
 use CBOR\CBORObject;
-use CBOR\Tag;
 use CBOR\Utils;
 use InvalidArgumentException;
 
-/**
- * @final
- */
-class TagManager implements TagManagerInterface
+final class TagManager implements TagManagerInterface
 {
     /**
-     * @var string[]
+     * @param class-string<TagInterface>[] $classes
      */
-    private $classes = [];
-
-    public static function create(): self
-    {
-        return new self();
+    public function __construct(
+        private array $classes = []
+    ) {
     }
 
+    /**
+     * @param array<class-string<TagInterface>> $classes
+     */
+    public static function create(array $classes = []): self
+    {
+        return new self($classes);
+    }
+
+    /**
+     * @param class-string<TagInterface> $class
+     */
     public function add(string $class): self
     {
         if ($class::getTagId() < 0) {
@@ -44,19 +40,21 @@ class TagManager implements TagManagerInterface
         return $this;
     }
 
+    /**
+     * @return class-string<TagInterface>
+     */
     public function getClassForValue(int $value): string
     {
         return array_key_exists($value, $this->classes) ? $this->classes[$value] : GenericTag::class;
     }
 
-    public function createObjectForValue(int $additionalInformation, ?string $data, CBORObject $object): Tag
+    public function createObjectForValue(int $additionalInformation, ?string $data, CBORObject $object): TagInterface
     {
         $value = $additionalInformation;
         if ($additionalInformation >= 24) {
             Utils::assertString($data, 'Invalid data');
             $value = Utils::binToInt($data);
         }
-        /** @var Tag $class */
         $class = $this->getClassForValue($value);
 
         return $class::createFromLoadedData($additionalInformation, $data, $object);

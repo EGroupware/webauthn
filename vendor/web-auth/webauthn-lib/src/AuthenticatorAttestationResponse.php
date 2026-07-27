@@ -2,15 +2,6 @@
 
 declare(strict_types=1);
 
-/*
- * The MIT License (MIT)
- *
- * Copyright (c) 2014-2021 Spomky-Labs
- *
- * This software may be modified and distributed under the terms
- * of the MIT license.  See the LICENSE file for details.
- */
-
 namespace Webauthn;
 
 use Webauthn\AttestationStatement\AttestationObject;
@@ -21,18 +12,24 @@ use Webauthn\AttestationStatement\AttestationObject;
 class AuthenticatorAttestationResponse extends AuthenticatorResponse
 {
     /**
-     * @var AttestationObject
+     * @param string[] $transports
      */
-    private $attestationObject;
-
-    public function __construct(CollectedClientData $clientDataJSON, AttestationObject $attestationObject)
-    {
+    public function __construct(
+        CollectedClientData $clientDataJSON,
+        public readonly AttestationObject $attestationObject,
+        public readonly array $transports = []
+    ) {
         parent::__construct($clientDataJSON);
-        $this->attestationObject = $attestationObject;
     }
 
-    public function getAttestationObject(): AttestationObject
-    {
-        return $this->attestationObject;
+    /**
+     * @param string[] $transports
+     */
+    public static function create(
+        CollectedClientData $clientDataJSON,
+        AttestationObject $attestationObject,
+        array $transports = []
+    ): self {
+        return new self($clientDataJSON, $attestationObject, $transports);
     }
 }
