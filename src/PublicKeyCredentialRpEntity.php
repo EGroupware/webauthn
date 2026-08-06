@@ -13,6 +13,8 @@
 
 namespace EGroupware\WebAuthn;
 
+use EGroupware\Api;
+
 // leading backslash required: unqualified "Webauthn\..." would resolve relative to this
 // namespace (EGroupware\WebAuthn\Webauthn\...) - that only worked while this app had its own
 // vendor/, via api/src/autoload.php's private-vendor bridge fallback, now that web-auth/webauthn-lib
@@ -31,7 +33,7 @@ class PublicKeyCredentialRpEntity extends \Webauthn\PublicKeyCredentialRpEntity
 			// wire JSON entirely, and navigator.credentials.create() then rejects the missing
 			// required member. So a real value is still needed here for as long as we're on 5.x.
 			empty($GLOBALS['egw_info']['server']['site_title']) ? 'EGroupware' : $GLOBALS['egw_info']['server']['site_title'],
-			preg_replace('/:.*$/', '', $_SERVER['HTTP_HOST']),              //ID
+			preg_replace('/:.*$/', '', Api\Header\Http::host()),              //ID
 			null                            //Icon
 		);
 	}

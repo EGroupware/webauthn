@@ -143,11 +143,14 @@ class Register
 			}
 
 			// current request scheme+host, used both as fallback rpId and for strict origin checking
-			$scheme = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http';
-			$host = preg_replace('/:.*$/', '', $_SERVER['HTTP_HOST']);
+			// (must use the same proxy-aware helpers as the rest of EGroupware, not raw $_SERVER
+			// values - behind a reverse proxy terminating TLS, $_SERVER['HTTPS'] is unset, which
+			// made the allowed origin "http://..." while the browser's real origin is "https://...")
+			$scheme = Api\Header\Http::schema();
+			$host = preg_replace('/:.*$/', '', Api\Header\Http::host());
 
 			$ceremonyStepManagerFactory = new CeremonyStepManagerFactory();
-			$ceremonyStepManagerFactory->setAllowedOrigins([$scheme.'://'.$_SERVER['HTTP_HOST']]);
+			$ceremonyStepManagerFactory->setAllowedOrigins([$scheme.'://'.Api\Header\Http::host()]);
 
 			$validator = AuthenticatorAttestationResponseValidator::create($ceremonyStepManagerFactory->creationCeremony());
 
