@@ -15,7 +15,8 @@
  */
 
 import { EgwApp } from '../../api/js/jsapi/egw_app';
-import { app } from '../../api/js/jsapi/egw_global';
+// app is an ambient global (declare global {} in egw_global.d.ts, unconditionally included
+// via tsconfig's "**/*.d.ts") - no import needed or possible.
 
 /**
  * WebAuthn client-side
@@ -128,7 +129,7 @@ class WebauthnApp extends EgwApp
 			this.et2.getArrayMgr('content').getEntry('registrationOptions'));
 
 		publicKey.challenge = Uint8Array.from(window.atob(this.base64url2base64(publicKey.challenge)), (c) => c.charCodeAt(0));
-		publicKey.user.id = Uint8Array.from(window.atob(this.base64url2base64(publicKey.user.id)), function(c){ return c.charCodeAt(0); });
+		publicKey.user.id = Uint8Array.from(window.atob(this.base64url2base64(publicKey.user.id)), (c) => c.charCodeAt(0));
 		if (publicKey.excludeCredentials)
 		{
 			publicKey.excludeCredentials = publicKey.excludeCredentials.map((data) => {
@@ -138,14 +139,17 @@ class WebauthnApp extends EgwApp
 		}
 
 		navigator.credentials.create({ 'publicKey': publicKey })
-			.then((data) => {
+			.then((data : PublicKeyCredential) => {
+				// registration (create()) always returns an attestation response, but the DOM lib
+				// types data.response as the more generic base AuthenticatorResponse (no attestationObject)
+				const response = <AuthenticatorAttestationResponse>data.response;
 				const publicKeyCredential = {
 					id: data.id,
 					type: data.type,
 					rawId: this.arrayToBase64String(new Uint8Array(data.rawId)),
 					response: {
-						clientDataJSON: this.arrayToBase64String(new Uint8Array(data.response.clientDataJSON)),
-						attestationObject: this.arrayToBase64String(new Uint8Array(data.response.attestationObject))
+						clientDataJSON: this.arrayToBase64String(new Uint8Array(response.clientDataJSON)),
+						attestationObject: this.arrayToBase64String(new Uint8Array(response.attestationObject))
 					}
 				};
 				const registrationResponse = this.et2.getWidgetById('registrationResponse');
