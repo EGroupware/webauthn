@@ -22,20 +22,17 @@ ready(() => {
 	// for JS calling loginForm.submit() we have to replace the method
 	loginForm.submit = (() =>
 	{
-		jQuery.ajax({
-			url: egw.webserverUrl+'/webauthn/ajax_check_login.php',
+		fetch(egw.webserverUrl+'/webauthn/ajax_check_login.php', {
 			method: 'POST',
-			//async: false,
-			data: jQuery('form').serialize(),
-			dataType: 'json',
-		}).then((_data) =>
+			headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+			body: new URLSearchParams(new FormData(loginForm)).toString(),
+		}).then((response) => response.ok ? response.json() : Promise.reject(response))
+		.then((publicKey) =>
 		{
-			const publicKey = _data;
-
-			publicKey.challenge = Uint8Array.from(window.atob(base64url2base64(publicKey.challenge)), function(c){return c.charCodeAt(0);});
+			publicKey.challenge = Uint8Array.from(window.atob(base64url2base64(publicKey.challenge)), (c) => c.charCodeAt(0));
 			if (publicKey.allowCredentials) {
-				publicKey.allowCredentials = publicKey.allowCredentials.map(function(data) {
-					data.id = Uint8Array.from(window.atob(base64url2base64(data.id)), function(c){return c.charCodeAt(0);});
+				publicKey.allowCredentials = publicKey.allowCredentials.map((data) => {
+					data.id = Uint8Array.from(window.atob(base64url2base64(data.id)), (c) => c.charCodeAt(0));
 					return data;
 				});
 			}
@@ -53,18 +50,22 @@ ready(() => {
 							userHandle: data.response.userHandle ? arrayToBase64String(new Uint8Array(data.response.userHandle)) : null
 						}
 					};
-					const response = jQuery('<input type="hidden" name="credentialsResponse"/>').val(btoa(JSON.stringify(publicKeyCredential))).appendTo(loginForm);
+					const credentialsResponse = document.createElement('input');
+					credentialsResponse.type = 'hidden';
+					credentialsResponse.name = 'credentialsResponse';
+					credentialsResponse.value = btoa(JSON.stringify(publicKeyCredential));
+					loginForm.appendChild(credentialsResponse);
 					submitForm();
 				})
-				.catch(function(error){
+				.catch((error) => {
 					console.log('FAIL', error);
 					submitForm();
 				});
 
-		}, function(_data)	// no token registered for give user
+		})
+		.catch(() =>	// no token registered for given user, or request failed
 		{
 			submitForm();
-			return;
 		});
 	});
 
