@@ -15,14 +15,14 @@
 				<column width="50"/>
 			</columns>
 			<rows>
-				<row>
-					<nextmatch-sortheader label="ID" id="pubkey_id"/>
+				<row class="th">
+					<et2-nextmatch-sortheader  label="ID" id="pubkey_id"></et2-nextmatch-sortheader>
 					<et2-nextmatch-header  label="Type" id="type"></et2-nextmatch-header>
 					<et2-nextmatch-header  label="Attestation" id="attestationType"></et2-nextmatch-header>
-					<nextmatch-sortheader label="Credential ID" id="pubkey_credential_id"/>
-					<nextmatch-sortheader label="Created" id="pubkey_created"/>
-					<nextmatch-sortheader label="Last modified" id="pubkey_updated"/>
-					<nextmatch-sortheader label="Deleted" id="pubkey_deleted"/>
+					<et2-nextmatch-sortheader  label="Credential ID" id="pubkey_credential_id"></et2-nextmatch-sortheader>
+					<et2-nextmatch-sortheader  label="Created" id="pubkey_created"></et2-nextmatch-sortheader>
+					<et2-nextmatch-sortheader  label="Last modified" id="pubkey_updated"></et2-nextmatch-sortheader>
+					<et2-nextmatch-sortheader  label="Deleted" id="pubkey_deleted"></et2-nextmatch-sortheader>
 					<et2-nextmatch-header  label="Counter" id="counter"></et2-nextmatch-header>
 				</row>
 				<row class="$row_cont[status_class]">
@@ -39,10 +39,14 @@
 		</grid>
 	</et2-template>
 	<et2-template  id="webauthn.tokens.add" template="" lang="" group="0" version="1.7.001">
-		<et2-button  label="Register" id="add" onclick="if (!app.webauthn) app.webauthn = new app.classes.webauthn(); app.webauthn.register(widget)" noSubmit="true"></et2-button>
+		<et2-button-icon  statustext="Register" image="add" id="add" onclick="if (!app.webauthn) app.webauthn = new app.classes.webauthn(); app.webauthn.register(widget)" noSubmit="true"></et2-button-icon>
 	</et2-template>
 	<et2-template  id="webauthn.tokens" template="" lang="" group="0" version="1.9.001">
 		<et2-hidden  id="registrationResponse" ></et2-hidden>
-		<nextmatch id="webauthn" template="webauthn.tokens.rows" header_left="webauthn.tokens.add" />
+		<!-- Shown as a tab of the "Security &amp; Password" popup, which has no app header, so the
+		     Register button stays in the nextmatch's own header, as header_left did -->
+		<et2-nextmatch  id="webauthn" template="webauthn.tokens.rows">
+			<et2-template  id="webauthn.tokens.add" slot="header"></et2-template>
+		</et2-nextmatch>
 	</et2-template>
 </overlay>

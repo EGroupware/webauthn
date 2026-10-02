@@ -29,9 +29,7 @@
 	</et2-template>
 	<et2-template  id="webauthn.tokens" template="" lang="" group="0" version="1.9.001">
 		<et2-hidden  id="registrationResponse" ></et2-hidden>
-		<nextmatch id="webauthn" template="webauthn.tokens.rows" header_left="webauthn.tokens.add" />
-		<et2-hbox>
-			<et2-button-icon  label=" " id="add" onclick="if (!app.webauthn) app.webauthn = new app.classes.webauthn(); app.webauthn.register(widget)" class="plus_button" noSubmit="true" image="plus-lg"></et2-button-icon>
-		</et2-hbox>
+		<et2-nextmatch  id="webauthn" template="webauthn.tokens.rows"></et2-nextmatch>
+		<et2-button-icon  statustext="Register" id="add" onclick="if (!app.webauthn) app.webauthn = new app.classes.webauthn(); app.webauthn.register(widget)" class="plus_button" noSubmit="true" image="plus-lg"></et2-button-icon>
 	</et2-template>
 </overlay>

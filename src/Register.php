@@ -63,6 +63,9 @@ class Register
 					'order' => 'pubkey_updated',
 					'sort' => 'DESC',
 					'row_id' => 'pubkey_id',
+					// own data cache prefix: the popup's other lists (Preferences' application passwords, openid)
+					// default to "preferences" too, and their row ids overlap
+					'dataStorePrefix' => self::APP,
 					'default_cols' => '!pubkey_credential_id',
 					'actions' => self::tokenActions(),
 				],
