@@ -134,7 +134,7 @@ class PublicKeyCredentialSourceRepository extends Api\Storage\Base
 		if (!is_array($keys)) $keys = ['pubkey_id' => $keys];
 
 		// finally delete already marked as deleted tokens
-		$keys[999] = 'pubkey_deleted IS NOT NULL';
+		$keys[999] = Api\Db\SqlFragment::raw('pubkey_deleted IS NOT NULL');
 		$this->db->delete(self::TABLE, $keys, __LINE__, __FILE__, self::APP);
 		$affected = $this->db->affected_rows();
 
