@@ -67,7 +67,7 @@ class PublicKeyCredentialSourceRepository extends Api\Storage\Base
 	{
 		if (($data = $this->read([
 			'pubkey_credential_id' => base64_encode($publicKeyCredentialId),
-			'pubkey_deleted IS NULL',
+			Api\Db\SqlFragment::raw('pubkey_deleted IS NULL'),
 		])))
 		{
             return self::serializer()->deserialize($data['pubkey_json'], CredentialRecord::class, 'json');
@@ -86,7 +86,7 @@ class PublicKeyCredentialSourceRepository extends Api\Storage\Base
 		$sources = [];
 		foreach((array)$this->search('', 'pubkey_json', '', '', '', false, 'AND', false, [
 			'account_id' => (int)$publicKeyCredentialUserEntity->id,
-			'pubkey_deleted IS NULL',
+			Api\Db\SqlFragment::raw('pubkey_deleted IS NULL'),
 		]) as $row)
 		{
 			$sources[] = self::serializer()->deserialize($row['pubkey_json'], CredentialRecord::class, 'json');
